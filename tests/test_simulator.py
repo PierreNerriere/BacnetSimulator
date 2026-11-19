@@ -177,6 +177,20 @@ class ConfigValidationTest(unittest.TestCase):
         cfg = demo_config()
         self.assertEqual(len(cfg.objects), 4)
 
+    def test_example_configs_are_valid(self) -> None:
+        from pathlib import Path
+
+        from bacnet_simulator.config import load_config
+        from bacnet_simulator.objects import build_object
+
+        examples_dir = Path(__file__).resolve().parent.parent / "examples"
+        paths = sorted(examples_dir.glob("*.json"))
+        self.assertGreaterEqual(len(paths), 2)
+        for path in paths:
+            cfg = load_config(path)
+            for obj in cfg.objects:
+                build_object(obj)
+
 
 if __name__ == "__main__":
     unittest.main()
