@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+from bacpypes3.pdu import IPv4Address
+
 from .animations import allowed_animations, animation_kind
 
 SUPPORTED_TYPES = (
@@ -49,10 +51,23 @@ class ObjectConfig:
 
 
 @dataclass
+class BBMDConfig:
+    """Configuration du mode BBMD (BACnet Broadcast Management Device, Annex J).
+
+    `peers` est la table de distribution de broadcast (BDT) initiale: adresses
+    des autres BBMD vers lesquels les broadcasts recus sont transferes.
+    """
+
+    enabled: bool = False
+    peers: List[str] = field(default_factory=list)
+
+
+@dataclass
 class SimulatorConfig:
     device: DeviceConfig = field(default_factory=DeviceConfig)
     objects: List[ObjectConfig] = field(default_factory=list)
     update_interval: float = 1.0
+    bbmd: BBMDConfig = field(default_factory=BBMDConfig)
 
 
 def _check(condition: bool, message: str) -> None:
@@ -129,9 +144,29 @@ def _parse_object(raw: Dict[str, Any], index: int) -> ObjectConfig:
     )
 
 
+def parse_bbmd(raw: Any) -> BBMDConfig:
+    """Valide la section 'bbmd' de la configuration JSON."""
+    if raw is None:
+        return BBMDConfig()
+    _check(isinstance(raw, dict), "'bbmd' doit etre un objet JSON")
+    enabled = bool(raw.get("enabled", False))
+    peers = raw.get("peers", [])
+    _check(
+        isinstance(peers, list) and all(isinstance(p, str) for p in peers),
+        "'bbmd.peers' doit etre une liste de chaines 'ip:port'",
+    )
+    for peer in peers:
+        try:
+            IPv4Address(peer)
+        except Exception as err:
+            raise ValueError(f"'bbmd.peers': adresse invalide {peer!r} ({err})")
+    return BBMDConfig(enabled=enabled, peers=list(peers))
+
+
 def parse_config(data: Dict[str, Any]) -> SimulatorConfig:
     _check(isinstance(data, dict), "la configuration doit etre un objet JSON")
     device = _parse_device(data.get("device", {}))
+    bbmd = parse_bbmd(data.get("bbmd"))
     raw_objects = data.get("objects", [])
     _check(isinstance(raw_objects, list), "'objects' doit etre une liste")
     objects = [_parse_object(raw, i) for i, raw in enumerate(raw_objects)]
@@ -145,7 +180,9 @@ def parse_config(data: Dict[str, Any]) -> SimulatorConfig:
     update_interval = float(data.get("update_interval", 1.0))
     _check(update_interval > 0, "'update_interval' doit etre > 0")
 
-    return SimulatorConfig(device=device, objects=objects, update_interval=update_interval)
+    return SimulatorConfig(
+        device=device, objects=objects, update_interval=update_interval, bbmd=bbmd
+    )
 
 
 def load_config(path: Union[str, Path]) -> SimulatorConfig:
