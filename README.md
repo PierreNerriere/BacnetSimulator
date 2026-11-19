@@ -10,18 +10,20 @@ Le simulateur héberge un objet `Device` et une liste d'objets BACnet (AI, AO, A
 
 ## Installation
 
+Nécessite **Python >= 3.10** et [Poetry](https://python-poetry.org/) :
+
 ```bash
-pip install -r requirements.txt
-# ou, pour les commandes `bacnet-simulator` / `bacnet-simulator-client` :
-pip install .
+poetry install
 ```
 
-Python >= 3.10 requis. Le port BACnet standard est **UDP 47808** (`0xBAC0`).
+Crée l'environnement virtuel et installe les dépendances verrouillées (`poetry.lock`). Les commandes `bacnet-simulator` et `bacnet-simulator-client` sont alors utilisables via `poetry run`, ou directement dans `poetry shell`.
+
+Le port BACnet standard est **UDP 47808** (`0xBAC0`).
 
 ## Lancement rapide (démo)
 
 ```bash
-python -m bacnet_simulator
+poetry run bacnet-simulator
 ```
 
 Lance un device `DemoDevice` (instance **1234**) sur `0.0.0.0:47808` avec 4 objets animés.
@@ -29,16 +31,16 @@ Lance un device `DemoDevice` (instance **1234**) sur `0.0.0.0:47808` avec 4 obje
 Dans un autre terminal, interrogez-le avec le client fourni :
 
 ```bash
-python -m bacnet_simulator.client --address 127.0.0.1:47808 list
-python -m bacnet_simulator.client --address 127.0.0.1:47808 read analogValue:1 presentValue
-python -m bacnet_simulator.client --address 127.0.0.1:47808 write analogValue:1 presentValue 42.5
-python -m bacnet_simulator.client --address 127.0.0.1:47808 who-is
+poetry run bacnet-simulator-client --address 127.0.0.1:47808 list
+poetry run bacnet-simulator-client --address 127.0.0.1:47808 read analogValue:1 presentValue
+poetry run bacnet-simulator-client --address 127.0.0.1:47808 write analogValue:1 presentValue 42.5
+poetry run bacnet-simulator-client --address 127.0.0.1:47808 who-is
 ```
 
 ## Lancement avec une configuration
 
 ```bash
-python -m bacnet_simulator --config examples/config.example.json
+poetry run bacnet-simulator --config examples/config.example.json
 ```
 
 Options : `--address 0.0.0.0:47808`, `--instance 1234`, `--name MonDevice`, `-v` (debug).
@@ -89,16 +91,16 @@ Options : `--address 0.0.0.0:47808`, `--instance 1234`, `--name MonDevice`, `-v`
 ## Client de test
 
 ```bash
-python -m bacnet_simulator.client --address <ip:port> who-is [--broadcast]
-python -m bacnet_simulator.client --address <ip:port> list [--device device:1234]
-python -m bacnet_simulator.client --address <ip:port> read analogValue:1 presentValue [--index N]
-python -m bacnet_simulator.client --address <ip:port> write analogValue:1 presentValue 42.5 [--priority 8]
+poetry run bacnet-simulator-client --address <ip:port> who-is [--broadcast]
+poetry run bacnet-simulator-client --address <ip:port> list [--device device:1234]
+poetry run bacnet-simulator-client --address <ip:port> read analogValue:1 presentValue [--index N]
+poetry run bacnet-simulator-client --address <ip:port> write analogValue:1 presentValue 42.5 [--priority 8]
 ```
 
 ## Tests
 
 ```bash
-python -m unittest discover -s tests -v
+poetry run python -m unittest discover -s tests -v
 ```
 
 Les tests démarrent le simulateur et un client sur `127.0.0.1` (loopback, ports éphémères) et vérifient Who-Is, ReadProperty, WriteProperty, la liste d'objets et les animations.
