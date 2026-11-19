@@ -1,0 +1,134 @@
+{
+  "device": {
+    "name": "PTU-Simule",
+    "instance": 2000,
+    "vendor_name": "VibeSim",
+    "vendor_identifier": 999,
+    "model_name": "BacnetDeviceSimulator",
+    "bind_address": "0.0.0.0:47808"
+  },
+  "update_interval": 1.0,
+  "objects": [
+    {
+      "type": "binaryValue",
+      "instance": 50,
+      "name": "Defaut_Com_PTU",
+      "description": "Defaut de communication regulateur PTU - Defaut interne IGNITION",
+      "value": "inactive"
+    },
+    {
+      "type": "multiStateValue",
+      "instance": 201,
+      "name": "OccupancyCmd",
+      "description": "Commande mode d'occupation - Ecrit par le programme horaire d'occupation de la supervision",
+      "value": 1,
+      "number_of_states": 4,
+      "state_text": ["Occupe", "Inoccupe", "Bypass", "Standby"]
+    },
+    {
+      "type": "analogValue",
+      "instance": 201,
+      "name": "BlindTranslationCmdNord",
+      "description": "Commande stores facade Nord",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 202,
+      "name": "BlindTranslationCmdSud",
+      "description": "Commande stores facade Sud",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 203,
+      "name": "BlindTranslationCmdEst",
+      "description": "Commande stores facade Est",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 204,
+      "name": "BlindTranslationCmdOuest",
+      "description": "Commande stores facade Ouest",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 205,
+      "name": "TranslationOcc",
+      "description": "Position initiales stores sur Occupation",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 206,
+      "name": "TranslationUnocc",
+      "description": "Position initiales stores sur Inoccupation",
+      "value": 0.0
+    },
+    {
+      "type": "binaryValue",
+      "instance": 51,
+      "name": "Defaut_ECL1",
+      "description": "Defaut module d'eclairage 1",
+      "value": "inactive"
+    },
+    {
+      "type": "binaryValue",
+      "instance": 52,
+      "name": "Defaut_ECL2",
+      "description": "Defaut module d'eclairage 2",
+      "value": "inactive"
+    },
+    {
+      "type": "binaryValue",
+      "instance": 53,
+      "name": "Defaut_BLI1",
+      "description": "Defaut module de store 3",
+      "value": "inactive"
+    },
+    {
+      "type": "binaryValue",
+      "instance": 54,
+      "name": "Defaut_BLI2",
+      "description": "Defaut module de store 4",
+      "value": "inactive"
+    },
+    {
+      "type": "binaryValue",
+      "instance": 41,
+      "name": "Defaut_RC1",
+      "description": "Defaut Allure UNITOUCH / UNITOUCH CH / EC Smart Comfort 1",
+      "value": "inactive"
+    },
+    {
+      "type": "binaryValue",
+      "instance": 42,
+      "name": "Defaut_RC2",
+      "description": "Defaut Allure EC Smart Comfort 2",
+      "value": "inactive"
+    },
+    {
+      "type": "binaryValue",
+      "instance": 43,
+      "name": "Defaut_RC3",
+      "description": "Defaut multicapteur 3",
+      "value": "inactive"
+    },
+    {
+      "type": "binaryValue",
+      "instance": 44,
+      "name": "Defaut_RC4",
+      "description": "Defaut multicapteur 4",
+      "value": "inactive"
+    },
+    {
+      "type": "binaryValue",
+      "instance": 45,
+      "name": "Defaut_RC5",
+      "description": "Defaut multicapteur 5",
+      "value": "inactive"
+    }
+  ]
+}

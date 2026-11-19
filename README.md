@@ -46,6 +46,31 @@ poetry run bacnet-simulator --config examples/config.example.json
 
 Options : `--address 0.0.0.0:47808`, `--instance 1234`, `--name MonDevice`, `-v` (debug).
 
+### Exemple : liste de points de supervision (PTU)
+
+`examples/config.ptu.json` traduit une liste de points de supervision de régulateur PTU (défaut de communication, commande d'occupation, commandes et positions de stores, défauts d'éclairage et de modules) :
+
+```bash
+poetry run bacnet-simulator --config examples/config.ptu.json
+```
+
+| Composant | Objet | objectName |
+|---|---|---|
+| Communication | `binaryValue:50` | `Defaut_Com_PTU` |
+| CdeOccupation | `multiStateValue:201` | `OccupancyCmd` |
+| CdeStoresNord / Sud / Est / Ouest | `analogValue:201` à `204` | `BlindTranslationCmdNord/Sud/Est/Ouest` |
+| PosStoresOcc / PosStoresInocc | `analogValue:205` / `206` | `TranslationOcc` / `TranslationUnocc` |
+| E1, E2, S3, S4 | `binaryValue:51` à `54` | `Defaut_ECL1`, `Defaut_ECL2`, `Defaut_BLI1`, `Defaut_BLI2` |
+| U1, UCH1, SC1 | `binaryValue:41` | `Defaut_RC1` |
+| SC2, M3, M4, M5 | `binaryValue:42` à `45` | `Defaut_RC2` à `Defaut_RC5` |
+
+Notes :
+
+- Objets binaires (TA) : `inactive` = état 0 (Normal), `active` = état 1 (Défaut).
+- `multiStateValue:201` : états 1 à 4 = Occupé, Inoccupé, Bypass, Standby.
+- Les objets `analogValue` et `multiStateValue` (TR, L/E) sont écrivables depuis la supervision.
+- Les lignes « Suppression » de la liste source (SA2, M6) ne sont pas reprises ; les composants partageant le même point `binaryValue:41` (U1, UCH1, SC1) sont fusionnés en un seul objet, le simulateur interdisant les doublons type+instance.
+
 ### Format de la configuration JSON
 
 ```json
