@@ -7,6 +7,7 @@ Le simulateur héberge un objet `Device` et une liste d'objets BACnet (AI, AO, A
 - **Who-Is / I-Am** (broadcast et unicast)
 - **ReadProperty** / **ReadPropertyMultiple**
 - **WriteProperty** / **WritePropertyMultiple** (les objets `*Value` et `*Output` sont écrivables, avec priorités pour les sorties)
+- **BBMD** (Annex J) en option : table de distribution de broadcast (BDT), table de devices étrangers (FDT) et transfert des broadcasts entre sous-réseaux
 
 ## Installation
 
@@ -73,6 +74,7 @@ Options : `--address 0.0.0.0:47808`, `--instance 1234`, `--name MonDevice`, `-v`
 - `device` : identité du device BACnet (`name`, `instance`, `vendor_*`, `bind_address` = adresse UDP d'écoute).
 - `update_interval` : période (s) de recalcul des animations.
 - `objects` : liste des objets BACnet.
+- `bbmd` : section BBMD (voir ci-dessous) : `enabled` (booléen) et `peers` (liste d'adresses `ip:port` des autres BBMD, = BDT initiale).
 
 ### Types d'objets supportés
 
@@ -88,6 +90,40 @@ Options : `--address 0.0.0.0:47808`, `--instance 1234`, `--name MonDevice`, `-v`
 - **Binaire** : `toggle` (`period`), ou `none`.
 - **Multi-états** : `cycle` (`period`), ou `none`.
 
+## Mode BBMD (Annex J)
+
+En mode **BBMD** (*BACnet Broadcast Management Device*), le simulateur joue le rôle d'un BBMD BACnet/IP :
+
+- il tient une **BDT** (*Broadcast Distribution Table*) : chaque broadcast reçu est retransmis à tous les peers de la BDT (et à la FDT) sous forme de `Forwarded-NPDU` ;
+- il tient une **FDT** (*Foreign Device Table*) : les devices des autres sous-réseaux s'y enregistrent avec *Register-Foreign-Device* et reçoivent alors les broadcasts transferés ;
+- il répond aux fonctions BVLL *Read/Write-Broadcast-Distribution-Table* et *Read/Delete-Foreign-Device-Table*.
+
+La BDT initiale se définit dans la configuration :
+
+```json
+"bbmd": {
+  "enabled": true,
+  "peers": ["0.0.0.0:47808", "10.0.1.2:47808"]
+}
+```
+
+(voir `examples/config.bbmd.example.json`). Par convention, la BDT contient le BBMD lui-même (`0.0.0.0:47808` ici = adresse locale).
+
+En ligne de commande (sans fichier de config) :
+
+```bash
+poetry run bacnet-simulator --bbmd --bbmd-peer 10.0.1.2:47808 --bbmd-peer 10.0.2.2:47808
+```
+
+`--bbmd` active le mode avec les peers du fichier de config ; `--bbmd-peer IP:PORT` (répétable) active le mode et remplace la BDT par les peers donnés.
+
+Pour inspecter un BBMD depuis le client :
+
+```bash
+poetry run bacnet-simulator-client --address <bbmd:47808> read-bdt
+poetry run bacnet-simulator-client --address <bbmd:47808> read-fdt
+```
+
 ## Client de test
 
 ```bash
@@ -95,6 +131,8 @@ poetry run bacnet-simulator-client --address <ip:port> who-is [--broadcast]
 poetry run bacnet-simulator-client --address <ip:port> list [--device device:1234]
 poetry run bacnet-simulator-client --address <ip:port> read analogValue:1 presentValue [--index N]
 poetry run bacnet-simulator-client --address <ip:port> write analogValue:1 presentValue 42.5 [--priority 8]
+poetry run bacnet-simulator-client --address <bbmd:port> read-bdt   # BDT du BBMD
+poetry run bacnet-simulator-client --address <bbmd:port> read-fdt   # FDT du BBMD
 ```
 
 ## Tests
