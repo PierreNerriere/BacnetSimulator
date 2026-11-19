@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bacnet-simulator"
+version = "0.1.0"
+description = "Simulateur de device BACnet/IP (BACnet/IP device simulator) avec bacpypes3"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "bacpypes3>=0.1.0",
+]
+
+[project.scripts]
+bacnet-simulator = "bacnet_simulator.cli:main"
+bacnet-simulator-client = "bacnet_simulator.client:main"
+
+[tool.setuptools.packages.find]
+include = ["bacnet_simulator*"]

@@ -1,0 +1,70 @@
+{
+  "device": {
+    "name": "MonDeviceSimule",
+    "instance": 1234,
+    "vendor_name": "VibeSim",
+    "vendor_identifier": 999,
+    "model_name": "BacnetDeviceSimulator",
+    "bind_address": "0.0.0.0:47808"
+  },
+  "update_interval": 1.0,
+  "objects": [
+    {
+      "type": "analogValue",
+      "instance": 1,
+      "name": "AV-Temperature",
+      "description": "Temperature ambiante simulee (sinusoide)",
+      "value": 21.0,
+      "units": "degreesCelsius",
+      "animation": { "type": "sine", "amplitude": 3.0, "period": 60.0, "offset": 21.0 }
+    },
+    {
+      "type": "analogInput",
+      "instance": 1,
+      "name": "AI-Humidity",
+      "description": "Humidite aleatoire",
+      "value": 45.0,
+      "units": "percentRelativeHumidity",
+      "animation": { "type": "random", "min": 40.0, "max": 60.0 }
+    },
+    {
+      "type": "analogInput",
+      "instance": 2,
+      "name": "AI-Puissance",
+      "description": "Rampe de puissance en boucle",
+      "value": 0.0,
+      "units": "kilowatts",
+      "animation": { "type": "ramp", "start": 0.0, "stop": 100.0, "duration": 120.0, "loop": true }
+    },
+    {
+      "type": "binaryValue",
+      "instance": 1,
+      "name": "BV-Pompe",
+      "value": "inactive",
+      "animation": { "type": "toggle", "period": 15.0 }
+    },
+    {
+      "type": "binaryInput",
+      "instance": 1,
+      "name": "BI-Porte",
+      "value": "inactive"
+    },
+    {
+      "type": "multiStateValue",
+      "instance": 1,
+      "name": "MSV-Mode",
+      "value": 1,
+      "number_of_states": 3,
+      "state_text": ["Arret", "Auto", "Manuel"],
+      "animation": { "type": "cycle", "period": 10.0 }
+    },
+    {
+      "type": "analogOutput",
+      "instance": 1,
+      "name": "AO-Vanne",
+      "value": 0.0,
+      "units": "percent",
+      "description": "Consigne de vanne (ecriture externe possible avec priorite)"
+    }
+  ]
+}
