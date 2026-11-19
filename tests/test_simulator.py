@@ -4,10 +4,19 @@ import asyncio
 import socket
 import unittest
 
-from bacpypes3.ipv4.app import NormalApplication
-from bacpypes3.pdu import IPv4Address
+from bacpypes3.ipv4.app import BBMDApplication, NormalApplication
+from bacpypes3.ipv4.bvll import (
+    LPCI,
+    ForwardedNPDU,
+    ReadBroadcastDistributionTable,
+    ReadForeignDeviceTable,
+    RegisterForeignDevice,
+    Result,
+    pdu_types,
+)
+from bacpypes3.pdu import IPv4Address, LocalBroadcast, PDU
 
-from bacnet_simulator.client import _client_device
+from bacnet_simulator.client import _bvll_request, _client_device
 from bacnet_simulator.config import parse_config
 from bacnet_simulator.simulator import BacnetSimulator
 
@@ -18,6 +27,29 @@ def _free_port() -> int:
     port = sock.getsockname()[1]
     sock.close()
     return port
+
+
+def _decode_bvll(data: bytes):
+    resp = PDU(data)
+    lpci = LPCI.decode(resp)
+    lpdu_class = pdu_types[lpci.bvlciFunction]
+    lpdu = lpdu_class.decode(resp)
+    LPCI.update(lpdu, lpci)
+    return lpdu
+
+
+async def _make_udp_endpoint(port: int):
+    loop = asyncio.get_running_loop()
+    queue: asyncio.Queue = asyncio.Queue()
+
+    class Proto(asyncio.DatagramProtocol):
+        def datagram_received(self, data, addr) -> None:
+            queue.put_nowait(data)
+
+    transport, _ = await loop.create_datagram_endpoint(
+        Proto, local_addr=("127.0.0.1", port)
+    )
+    return transport, queue
 
 
 def _test_config(server_port: int) -> dict:
@@ -128,6 +160,10 @@ class SimulatorIntegrationTest(unittest.IsolatedAsyncioTestCase):
             self.target, "analogValue:2", "presentValue"
         )
         self.assertGreater(abs(float(value) - 20.0), 0.01)
+
+    async def test_normal_mode_is_not_bbmd(self) -> None:
+        self.assertIsInstance(self.sim.app, NormalApplication)
+        self.assertFalse(hasattr(self.sim.app, "bbmd"))
 
 
 class ConfigValidationTest(unittest.TestCase):
