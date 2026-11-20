@@ -10,13 +10,6 @@
   "update_interval": 1.0,
   "objects": [
     {
-      "type": "binaryValue",
-      "instance": 50,
-      "name": "Defaut_Com_PTU",
-      "description": "Defaut de communication regulateur PTU - Defaut interne IGNITION",
-      "value": "inactive"
-    },
-    {
       "type": "multiStateValue",
       "instance": 201,
       "name": "OccupancyCmd",
