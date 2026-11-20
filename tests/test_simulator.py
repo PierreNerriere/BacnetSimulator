@@ -90,6 +90,20 @@ def _test_config(server_port: int) -> dict:
                 "number_of_states": 3,
                 "state_text": ["Off", "Auto", "Manual"],
             },
+            {
+                "type": "analogOutput",
+                "instance": 1,
+                "name": "AO-Valve",
+                "value": 30.0,
+                "units": "percent",
+            },
+            {
+                "type": "multiStateOutput",
+                "instance": 1,
+                "name": "MSO-Mode",
+                "value": 1,
+                "number_of_states": 3,
+            },
         ],
     }
 
@@ -139,6 +153,19 @@ class SimulatorIntegrationTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(int(value), 2)
         text = await self.client.read_property(self.target, "multiStateValue:1", "stateText", 3)
         self.assertEqual(str(text), "Manual")
+
+    async def test_read_output_priority_array(self) -> None:
+        priority_array = await self.client.read_property(
+            self.target, "analogOutput:1", "priorityArray"
+        )
+        self.assertEqual(len(priority_array), 16)
+        await self.client.read_property(
+            self.target, "analogOutput:1", "currentCommandPriority"
+        )
+        mso_priority_array = await self.client.read_property(
+            self.target, "multiStateOutput:1", "priorityArray"
+        )
+        self.assertEqual(len(mso_priority_array), 16)
 
     async def test_object_list(self) -> None:
         obj_list = await self.client.read_property(self.target, "device:5678", "objectList")
