@@ -13,6 +13,7 @@ from bacpypes3.primitivedata import ObjectIdentifier
 
 from .animations import animate, animation_kind, cast_value
 from .config import SimulatorConfig
+from .network import apply_broadcast_address
 from .objects import build_object
 
 _log = logging.getLogger("bacnet_simulator")
@@ -43,6 +44,7 @@ class BacnetSimulator:
             segmentationSupported="segmentedBoth",
         )
         self.app = NormalApplication(self.device_object, IPv4Address(dev.bind_address))
+        broadcast = apply_broadcast_address(self.app, dev.bind_address, dev.broadcast_address)
         for obj_cfg in self.config.objects:
             obj = build_object(obj_cfg)
             self.app.add_object(obj)
@@ -56,6 +58,8 @@ class BacnetSimulator:
             dev.bind_address,
             len(self.objects),
         )
+        if broadcast is not None:
+            _log.info("adresse de broadcast: %s:%d", broadcast[0], broadcast[1])
         for obj_cfg, _ in self.objects:
             _log.info("  - %s:%d (%s)", obj_cfg.type, obj_cfg.instance, obj_cfg.name)
 

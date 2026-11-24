@@ -18,6 +18,8 @@ from bacpypes3.local.device import DeviceObject
 from bacpypes3.pdu import IPv4Address
 from bacpypes3.primitivedata import ObjectIdentifier
 
+from .network import apply_broadcast_address
+
 
 def _client_device() -> DeviceObject:
     instance = 900000 + (os.getpid() % 100000)
@@ -52,9 +54,9 @@ def _cast_write_value(raw: str) -> Any:
 
 
 async def _run(args: argparse.Namespace) -> int:
-    app = NormalApplication(
-        _client_device(), IPv4Address(args.local_address or "0.0.0.0:0")
-    )
+    local_address = args.local_address or "0.0.0.0:0"
+    app = NormalApplication(_client_device(), IPv4Address(local_address))
+    apply_broadcast_address(app, local_address, args.broadcast_address)
     try:
         target = IPv4Address(args.address)
 
@@ -117,6 +119,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--local-address",
         default=None,
         help="adresse locale du client, ex. 0.0.0.0:47809 (defaut: port ephemere)",
+    )
+    parser.add_argument(
+        "--broadcast-address",
+        default=None,
+        help="adresse de broadcast IPv4 pour who-is --broadcast "
+        "(detectee automatiquement si absente)",
     )
     parser.add_argument("--timeout", type=float, default=3.0, help="timeout who-is (s)")
     sub = parser.add_subparsers(dest="command", required=True)

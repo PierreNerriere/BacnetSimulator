@@ -43,7 +43,7 @@ poetry run bacnet-simulator-client --address 127.0.0.1:47808 who-is
 poetry run bacnet-simulator --config examples/config.example.json
 ```
 
-Options : `--address 0.0.0.0:47808`, `--instance 1234`, `--name MonDevice`, `-v` (debug).
+Options : `--address 0.0.0.0:47808`, `--broadcast-address 192.168.1.255`, `--instance 1234`, `--name MonDevice`, `-v` (debug).
 
 ### Format de la configuration JSON
 
@@ -54,7 +54,8 @@ Options : `--address 0.0.0.0:47808`, `--instance 1234`, `--name MonDevice`, `-v`
     "instance": 1234,
     "vendor_name": "VibeSim",
     "vendor_identifier": 999,
-    "bind_address": "0.0.0.0:47808"
+    "bind_address": "0.0.0.0:47808",
+    "broadcast_address": "192.168.1.255"
   },
   "update_interval": 1.0,
   "objects": [
@@ -70,7 +71,7 @@ Options : `--address 0.0.0.0:47808`, `--instance 1234`, `--name MonDevice`, `-v`
 }
 ```
 
-- `device` : identité du device BACnet (`name`, `instance`, `vendor_*`, `bind_address` = adresse UDP d'écoute).
+- `device` : identité du device BACnet (`name`, `instance`, `vendor_*`, `bind_address` = adresse UDP d'écoute, `broadcast_address` = adresse de broadcast IPv4 optionnelle, ex. `192.168.1.255` ou `255.255.255.255[:47808]`).
 - `update_interval` : période (s) de recalcul des animations.
 - `objects` : liste des objets BACnet.
 
@@ -107,6 +108,6 @@ Les tests démarrent le simulateur et un client sur `127.0.0.1` (loopback, ports
 
 ## Notes réseau
 
-- Sur un vrai réseau, le **Who-Is en broadcast** découvre le simulateur automatiquement (pensez à ouvrir l'UDP 47808 en entrée).
-- En local/loopback, utilisez le mode unicast du client (`--address 127.0.0.1:47808`), car le broadcast ne traverse pas `127.0.0.1`.
+- Sur un vrai réseau, le **Who-Is en broadcast** découvre le simulateur automatiquement (pensez à ouvrir l'UDP 47808 en entrée). L'adresse de broadcast est détectée automatiquement depuis l'interface principale quand `bind_address` est joker (`0.0.0.0`) ; on peut la forcer avec `broadcast_address` dans la configuration ou `--broadcast-address` en ligne de commande (repli sur `255.255.255.255` si la détection échoue). Sans adresse de broadcast, bacpypes3 journalise `RuntimeError('no broadcast')` lors des envois en broadcast (ex. réponse I-Am à un Who-Is broadcast).
+- En local/loopback, utilisez le mode unicast du client (`--address 127.0.0.1:47808`), car le broadcast ne traverse pas `127.0.0.1` (aucun broadcast n'est détecté sur `127.0.0.0/8`).
 - Plusieurs simulateurs sur la même machine : lancer chacun avec un `--address` différent (ex. `0.0.0.0:47809`).
