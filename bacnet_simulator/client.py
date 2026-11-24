@@ -15,8 +15,16 @@ import sys
 from typing import Any, List, Optional
 
 from bacpypes3.ipv4.app import NormalApplication
+from bacpypes3.ipv4.bvll import (
+    LPCI,
+    LPDU,
+    ReadBroadcastDistributionTable,
+    ReadForeignDeviceTable,
+    Result,
+    pdu_types,
+)
 from bacpypes3.local.device import DeviceObject
-from bacpypes3.pdu import IPv4Address
+from bacpypes3.pdu import IPv4Address, PDU
 from bacpypes3.primitivedata import ObjectIdentifier
 
 from .enums import cast_binary, cast_polarity
@@ -68,13 +76,64 @@ def _cast_write_value(raw: str, obj_type: str = "", prop: str = "") -> Any:
     return raw
 
 
+async def _bvll_request(target: IPv4Address, request_lpdu: LPDU, timeout: float) -> LPDU:
+    """Envoie une BVLL (Annex J) a un BBMD sur un socket UDP jetable et decode la reponse."""
+    loop = asyncio.get_running_loop()
+    received: asyncio.Future = loop.create_future()
+
+    class _Proto(asyncio.DatagramProtocol):
+        def datagram_received(self, data: bytes, addr) -> None:
+            if not received.done():
+                received.set_result(data)
+
+    transport, _ = await loop.create_datagram_endpoint(_Proto, local_addr=("0.0.0.0", 0))
+    try:
+        transport.sendto(request_lpdu.encode().pduData, target.addrTuple)
+        data = await asyncio.wait_for(received, timeout)
+    finally:
+        transport.close()
+    resp = PDU(data)
+    lpci = LPCI.decode(resp)
+    lpdu_class = pdu_types.get(lpci.bvlciFunction)
+    if lpdu_class is None:
+        raise ValueError(f"fonction BVLL inconnue: {lpci.bvlciFunction:#04x}")
+    lpdu = lpdu_class.decode(resp)
+    LPCI.update(lpdu, lpci)
+    return lpdu
+
+
+async def _bbmd_command(args: argparse.Namespace, target: IPv4Address) -> int:
+    if args.command == "read-bdt":
+        ack = await _bvll_request(target, ReadBroadcastDistributionTable(), args.timeout)
+        if isinstance(ack, Result):
+            print(f"erreur du BBMD: {ack.bvlciResultCode:#06x}")
+            return 1
+        print(f"{len(ack.bvlciBDT)} entree(s) dans la BDT de {args.address}:")
+        for entry in ack.bvlciBDT:
+            print(f"  {entry}")
+        return 0
+    if args.command == "read-fdt":
+        ack = await _bvll_request(target, ReadForeignDeviceTable(), args.timeout)
+        if isinstance(ack, Result):
+            print(f"erreur du BBMD: {ack.bvlciResultCode:#06x}")
+            return 1
+        print(f"{len(ack.bvlciFDT)} entree(s) dans la FDT de {args.address}:")
+        for entry in ack.bvlciFDT:
+            print(f"  {entry.fdAddress} (ttl={entry.fdTTL}, restant={entry.fdRemain})")
+        return 0
+    raise ValueError(f"commande inconnue: {args.command!r}")
+
+
 async def _run(args: argparse.Namespace) -> int:
+    target = IPv4Address(args.address)
+
+    if args.command in ("read-bdt", "read-fdt"):
+        return await _bbmd_command(args, target)
+
     app = NormalApplication(
         _client_device(), IPv4Address(args.local_address or "0.0.0.0:0")
     )
     try:
-        target = IPv4Address(args.address)
-
         if args.command == "who-is":
             address = None if args.broadcast else target
             i_ams = await app.who_is(address=address, timeout=args.timeout)
@@ -158,6 +217,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_list = sub.add_parser("list", help="lister les objets du device")
     p_list.add_argument(
         "--device", default="device:1234", help="objet device cible (defaut: device:1234)"
+    )
+
+    sub.add_parser(
+        "read-bdt", help="lire la BDT d'un BBMD (Read-Broadcast-Distribution-Table)"
+    )
+    sub.add_parser(
+        "read-fdt", help="lire la FDT d'un BBMD (Read-Foreign-Device-Table)"
     )
     return parser
 

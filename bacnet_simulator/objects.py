@@ -6,6 +6,9 @@ from bacpypes3.basetypes import (
     BinaryPV,
     EngineeringUnits,
     EventState,
+    OptionalBinaryPV,
+    OptionalReal,
+    OptionalUnsigned,
     Polarity,
     StatusFlags,
 )
@@ -40,6 +43,12 @@ _OBJECT_CLASSES: Dict[str, type] = {
 }
 
 _OUTPUT_TYPES = {"analogOutput", "binaryOutput", "multiStateOutput"}
+
+_NULL_PRIORITY_VALUE = {
+    "analog": OptionalReal,
+    "binary": OptionalBinaryPV,
+    "multistate": OptionalUnsigned,
+}
 
 
 def _common_kwargs(cfg: ObjectConfig) -> Dict[str, Any]:
@@ -95,8 +104,9 @@ def build_object(cfg: ObjectConfig) -> Object:
         kwargs["stateText"] = _state_text(cfg)
 
     if cfg.type in _OUTPUT_TYPES:
-        kwargs["priorityArray"] = [None] * 16
+        null_value = _NULL_PRIORITY_VALUE[kind]
+        kwargs["priorityArray"] = [null_value(null=()) for _ in range(16)]
         kwargs["relinquishDefault"] = value
-        kwargs["currentCommandPriority"] = None
+        kwargs["currentCommandPriority"] = OptionalUnsigned(null=())
 
     return cls(**kwargs)
