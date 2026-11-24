@@ -18,6 +18,8 @@ from bacpypes3.pdu import IPv4Address, LocalBroadcast, PDU
 
 from bacnet_simulator.client import _bvll_request, _client_device
 from bacnet_simulator.config import parse_config
+from bacnet_simulator.enums import cast_binary, cast_polarity
+from bacnet_simulator.objects import build_object
 from bacnet_simulator.simulator import BacnetSimulator
 
 
@@ -80,7 +82,9 @@ def _test_config(server_port: int) -> dict:
                 "type": "binaryValue",
                 "instance": 1,
                 "name": "BV-OnOff",
-                "value": "inactive",
+                "value": "inactif",
+                "active_text": "Actif",
+                "inactive_text": "Inactif",
             },
             {
                 "type": "multiStateValue",
@@ -147,6 +151,22 @@ class SimulatorIntegrationTest(unittest.IsolatedAsyncioTestCase):
         await self.client.write_property(self.target, "binaryValue:1", "presentValue", "active")
         value = await self.client.read_property(self.target, "binaryValue:1", "presentValue")
         self.assertEqual(str(value), "active")
+
+    async def test_write_binary_value_french_alias(self) -> None:
+        await self.client.write_property(
+            self.target,
+            "binaryValue:1",
+            "presentValue",
+            _cast_write_value("Actif", "binaryValue", "presentValue"),
+        )
+        value = await self.client.read_property(self.target, "binaryValue:1", "presentValue")
+        self.assertEqual(str(value), "active")
+
+    async def test_binary_active_inactive_text(self) -> None:
+        active = await self.client.read_property(self.target, "binaryValue:1", "activeText")
+        inactive = await self.client.read_property(self.target, "binaryValue:1", "inactiveText")
+        self.assertEqual(str(active), "Actif")
+        self.assertEqual(str(inactive), "Inactif")
 
     async def test_read_multistate(self) -> None:
         value = await self.client.read_property(self.target, "multiStateValue:1", "presentValue")

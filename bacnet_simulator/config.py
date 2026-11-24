@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Union
 from bacpypes3.pdu import IPv4Address
 
 from .animations import allowed_animations, animation_kind
+from .enums import cast_binary, cast_polarity
 
 SUPPORTED_TYPES = (
     "analogInput",
@@ -45,6 +46,8 @@ class ObjectConfig:
     value: Any = None
     units: Optional[str] = None
     polarity: str = "normal"
+    active_text: Optional[str] = None
+    inactive_text: Optional[str] = None
     number_of_states: Optional[int] = None
     state_text: Optional[List[str]] = None
     animation: Optional[Dict[str, Any]] = None
@@ -130,14 +133,61 @@ def _parse_object(raw: Dict[str, Any], index: int) -> ObjectConfig:
             f"objects[{index}].state_text doit etre une liste de chaines",
         )
 
+    kind = animation_kind(obj_type)
+    value = raw.get("value")
+    polarity = str(raw.get("polarity", "normal"))
+    if kind == "binary":
+        if value is not None:
+            try:
+                value = cast_binary(value)
+            except ValueError as err:
+                raise ValueError(f"objects[{index}].value: {err}") from err
+        try:
+            polarity = cast_polarity(polarity)
+        except ValueError as err:
+            raise ValueError(f"objects[{index}].polarity: {err}") from err
+
+    active_text = raw.get("active_text")
+    inactive_text = raw.get("inactive_text")
+    if (active_text is not None or inactive_text is not None) and kind != "binary":
+        raise ValueError(
+            f"objects[{index}]: 'active_text'/'inactive_text' reserves aux objets binaires"
+        )
+    for label, text in (("active_text", active_text), ("inactive_text", inactive_text)):
+        if text is not None:
+            _check(
+                isinstance(text, str) and text.strip() != "",
+                f"objects[{index}].{label} doit etre une chaine non vide",
+            )
+
+    if kind == "multistate":
+        if value is not None:
+            try:
+                value = int(value)
+            except (TypeError, ValueError):
+                raise ValueError(
+                    f"objects[{index}].value doit etre un entier pour {obj_type!r}"
+                ) from None
+            _check(
+                1 <= value <= number_of_states,
+                f"objects[{index}].value hors limites: {value} (1..{number_of_states})",
+            )
+        if state_text is not None:
+            _check(
+                len(state_text) == number_of_states,
+                f"objects[{index}].state_text doit contenir {number_of_states} libelle(s)",
+            )
+
     return ObjectConfig(
         type=obj_type,
         instance=instance,
         name=name,
         description=str(raw.get("description", "")),
-        value=raw.get("value"),
+        value=value,
         units=raw.get("units"),
-        polarity=str(raw.get("polarity", "normal")),
+        polarity=polarity,
+        active_text=active_text,
+        inactive_text=inactive_text,
         number_of_states=number_of_states,
         state_text=state_text,
         animation=animation,
@@ -229,7 +279,9 @@ def demo_config() -> SimulatorConfig:
                     "type": "binaryValue",
                     "instance": 1,
                     "name": "BV-Pump",
-                    "value": "inactive",
+                    "value": "inactif",
+                    "active_text": "Marche",
+                    "inactive_text": "Arret",
                     "animation": {"type": "toggle", "period": 15.0},
                 },
                 {
