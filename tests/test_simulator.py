@@ -7,8 +7,10 @@ import unittest
 from bacpypes3.ipv4.app import NormalApplication
 from bacpypes3.pdu import IPv4Address
 
-from bacnet_simulator.client import _client_device
+from bacnet_simulator.client import _cast_write_value, _client_device
 from bacnet_simulator.config import parse_config
+from bacnet_simulator.enums import cast_binary, cast_polarity
+from bacnet_simulator.objects import build_object
 from bacnet_simulator.simulator import BacnetSimulator
 
 
@@ -48,7 +50,9 @@ def _test_config(server_port: int) -> dict:
                 "type": "binaryValue",
                 "instance": 1,
                 "name": "BV-OnOff",
-                "value": "inactive",
+                "value": "inactif",
+                "active_text": "Actif",
+                "inactive_text": "Inactif",
             },
             {
                 "type": "multiStateValue",
@@ -101,6 +105,22 @@ class SimulatorIntegrationTest(unittest.IsolatedAsyncioTestCase):
         await self.client.write_property(self.target, "binaryValue:1", "presentValue", "active")
         value = await self.client.read_property(self.target, "binaryValue:1", "presentValue")
         self.assertEqual(str(value), "active")
+
+    async def test_write_binary_value_french_alias(self) -> None:
+        await self.client.write_property(
+            self.target,
+            "binaryValue:1",
+            "presentValue",
+            _cast_write_value("Actif", "binaryValue", "presentValue"),
+        )
+        value = await self.client.read_property(self.target, "binaryValue:1", "presentValue")
+        self.assertEqual(str(value), "active")
+
+    async def test_binary_active_inactive_text(self) -> None:
+        active = await self.client.read_property(self.target, "binaryValue:1", "activeText")
+        inactive = await self.client.read_property(self.target, "binaryValue:1", "inactiveText")
+        self.assertEqual(str(active), "Actif")
+        self.assertEqual(str(inactive), "Inactif")
 
     async def test_read_multistate(self) -> None:
         value = await self.client.read_property(self.target, "multiStateValue:1", "presentValue")
@@ -176,6 +196,113 @@ class ConfigValidationTest(unittest.TestCase):
 
         cfg = demo_config()
         self.assertEqual(len(cfg.objects), 4)
+
+    def test_binary_value_alias_normalized(self) -> None:
+        cfg = parse_config(
+            {"objects": [{"type": "binaryValue", "instance": 1, "name": "b", "value": "Actif"}]}
+        )
+        self.assertEqual(cfg.objects[0].value, "active")
+
+    def test_invalid_binary_value_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_config(
+                {"objects": [{"type": "binaryValue", "instance": 1, "name": "b", "value": "peut-etre"}]}
+            )
+
+    def test_polarity_alias_normalized(self) -> None:
+        cfg = parse_config(
+            {"objects": [{"type": "binaryInput", "instance": 1, "name": "b", "polarity": "Inverse"}]}
+        )
+        self.assertEqual(cfg.objects[0].polarity, "reverse")
+
+    def test_invalid_polarity_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_config(
+                {"objects": [{"type": "binaryInput", "instance": 1, "name": "b", "polarity": "cote"}]}
+            )
+
+    def test_active_text_only_on_binary(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_config(
+                {"objects": [{"type": "analogValue", "instance": 1, "name": "a", "active_text": "Actif"}]}
+            )
+
+    def test_empty_active_text_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_config(
+                {"objects": [{"type": "binaryValue", "instance": 1, "name": "b", "active_text": "  "}]}
+            )
+
+    def test_state_text_length_must_match_states(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_config(
+                {
+                    "objects": [
+                        {
+                            "type": "multiStateValue",
+                            "instance": 1,
+                            "name": "m",
+                            "number_of_states": 3,
+                            "state_text": ["Arret", "Auto"],
+                        }
+                    ]
+                }
+            )
+
+    def test_multistate_value_out_of_range_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_config(
+                {
+                    "objects": [
+                        {
+                            "type": "multiStateValue",
+                            "instance": 1,
+                            "name": "m",
+                            "number_of_states": 3,
+                            "value": 9,
+                        }
+                    ]
+                }
+            )
+
+    def test_default_binary_texts(self) -> None:
+        cfg = parse_config({"objects": [{"type": "binaryValue", "instance": 1, "name": "b"}]})
+        obj = build_object(cfg.objects[0])
+        self.assertEqual(str(obj.activeText), "Actif")
+        self.assertEqual(str(obj.inactiveText), "Inactif")
+
+
+class EnumCastTest(unittest.TestCase):
+    def test_cast_binary_active_aliases(self) -> None:
+        for value in ("active", "Actif", " ACTIF ", "on", "oui", "marche", "true", "1", 1, 2.0, True):
+            self.assertEqual(cast_binary(value), "active", msg=repr(value))
+
+    def test_cast_binary_inactive_aliases(self) -> None:
+        for value in ("inactive", "Inactif", "off", "non", "arret", "false", "0", 0, 0.0, False):
+            self.assertEqual(cast_binary(value), "inactive", msg=repr(value))
+
+    def test_cast_binary_invalid(self) -> None:
+        for value in ("peut-etre", "", None, [1]):
+            with self.assertRaises(ValueError, msg=repr(value)):
+                cast_binary(value)
+
+    def test_cast_polarity(self) -> None:
+        self.assertEqual(cast_polarity("normal"), "normal")
+        self.assertEqual(cast_polarity("NORMAL"), "normal")
+        for value in ("reverse", "reversed", "inverse", "Inversee"):
+            self.assertEqual(cast_polarity(value), "reverse", msg=repr(value))
+        with self.assertRaises(ValueError):
+            cast_polarity("cote")
+
+    def test_client_cast_write_value(self) -> None:
+        self.assertEqual(_cast_write_value("actif", "binaryValue", "presentValue"), "active")
+        self.assertEqual(_cast_write_value("0", "binaryOutput", "presentValue"), "inactive")
+        self.assertEqual(_cast_write_value("2", "multiStateValue", "presentValue"), 2)
+        self.assertEqual(_cast_write_value("inverse", "binaryInput", "polarity"), "reverse")
+        self.assertAlmostEqual(_cast_write_value("42.5", "analogValue", "presentValue"), 42.5)
+        self.assertIs(_cast_write_value("true", "analogValue", "presentValue"), True)
+        with self.assertRaises(ValueError):
+            _cast_write_value("abc", "multiStateValue", "presentValue")
 
 
 if __name__ == "__main__":

@@ -79,8 +79,28 @@ Options : `--address 0.0.0.0:47808`, `--instance 1234`, `--name MonDevice`, `-v`
 | `type` | Écriture externe | Propriétés spécifiques |
 |---|---|---|
 | `analogInput` / `analogOutput` / `analogValue` | AV/AO oui | `value` (float), `units` |
-| `binaryInput` / `binaryOutput` / `binaryValue` | BV/BO oui | `value` (`active`/`inactive`), `polarity` |
+| `binaryInput` / `binaryOutput` / `binaryValue` | BV/BO oui | `value` (voir énumérations ci-dessous), `polarity`, `active_text` / `inactive_text` |
 | `multiStateInput` / `multiStateOutput` / `multiStateValue` | MSV/MSO oui | `value` (1..N), `number_of_states`, `state_text` |
+
+### Énumérations
+
+Les valeurs énumérées acceptent les libellés canoniques BACnet **et** des alias français/anglais, en majuscules ou non :
+
+- **Binaire** (`presentValue` des BI/BO/BV, `value` en config, écriture client) : `active`/`inactive` ainsi que `actif`/`inactif`, `on`/`off`, `oui`/`non`, `marche`/`arret`, `true`/`false`, `1`/`0` (aussi booléens/nombres en config).
+- **Polarité** (`polarity` des BI/BO) : `normal`/`reverse`, alias `inverse`/`inversée`/`reversed`.
+
+Les objets binaires exposent de plus les libellés `activeText` / `inactiveText` (ex. `Actif` / `Inactif` par défaut), configurables via `active_text` / `inactive_text` :
+
+```json
+{
+  "type": "binaryValue",
+  "instance": 1,
+  "name": "BV-Pompe",
+  "value": "inactif",
+  "active_text": "Marche",
+  "inactive_text": "Arret"
+}
+```
 
 ### Animations (`animation`)
 
@@ -95,6 +115,8 @@ poetry run bacnet-simulator-client --address <ip:port> who-is [--broadcast]
 poetry run bacnet-simulator-client --address <ip:port> list [--device device:1234]
 poetry run bacnet-simulator-client --address <ip:port> read analogValue:1 presentValue [--index N]
 poetry run bacnet-simulator-client --address <ip:port> write analogValue:1 presentValue 42.5 [--priority 8]
+poetry run bacnet-simulator-client --address <ip:port> write binaryValue:1 presentValue actif
+poetry run bacnet-simulator-client --address <ip:port> read binaryValue:1 activeText
 ```
 
 ## Tests

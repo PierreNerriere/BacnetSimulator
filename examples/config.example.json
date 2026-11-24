@@ -40,14 +40,19 @@
       "type": "binaryValue",
       "instance": 1,
       "name": "BV-Pompe",
-      "value": "inactive",
+      "value": "inactif",
+      "active_text": "Marche",
+      "inactive_text": "Arret",
       "animation": { "type": "toggle", "period": 15.0 }
     },
     {
       "type": "binaryInput",
       "instance": 1,
       "name": "BI-Porte",
-      "value": "inactive"
+      "value": "inactif",
+      "polarity": "normal",
+      "active_text": "Ouvert",
+      "inactive_text": "Ferme"
     },
     {
       "type": "multiStateValue",

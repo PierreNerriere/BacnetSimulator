@@ -8,6 +8,8 @@ import math
 import random
 from typing import Any, Dict, Optional
 
+from .enums import cast_binary
+
 ANALOG_ANIMATIONS = ("none", "sine", "ramp", "random", "step")
 BINARY_ANIMATIONS = ("none", "toggle")
 MULTISTATE_ANIMATIONS = ("none", "cycle")
@@ -103,19 +105,3 @@ def cast_value(kind: str, value: Any) -> Any:
     if kind == "binary":
         return cast_binary(value)
     return int(value)
-
-
-def cast_binary(value: Any) -> str:
-    """Normalise une valeur binaire en 'active' ou 'inactive'."""
-    if isinstance(value, str):
-        v = value.strip().lower()
-        if v in ("active", "true", "on", "1"):
-            return "active"
-        if v in ("inactive", "false", "off", "0"):
-            return "inactive"
-        raise ValueError(f"valeur binaire invalide: {value!r}")
-    if isinstance(value, bool):
-        return "active" if value else "inactive"
-    if isinstance(value, (int, float)):
-        return "active" if value else "inactive"
-    raise ValueError(f"valeur binaire invalide: {value!r}")
