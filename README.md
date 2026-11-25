@@ -7,6 +7,7 @@ Le simulateur héberge un objet `Device` et une liste d'objets BACnet (AI, AO, A
 - **Who-Is / I-Am** (broadcast et unicast)
 - **ReadProperty** / **ReadPropertyMultiple**
 - **WriteProperty** / **WritePropertyMultiple** (les objets `*Value` et `*Output` sont écrivables, avec priorités pour les sorties)
+- **SubscribeCOV** : notifications COV (confirmees ou non) envoyees a chaque changement de `presentValue` (animation ou ecriture externe) ; une notification initiale est envoyee des la souscription.
 - **BBMD** (Annex J) en option : table de distribution de broadcast (BDT), table de devices étrangers (FDT) et transfert des broadcasts entre sous-réseaux
 
 ## Installation
@@ -91,7 +92,8 @@ Notes :
       "name": "AV-Temperature",
       "value": 21.0,
       "units": "degreesCelsius",
-      "animation": { "type": "sine", "amplitude": 3.0, "period": 60.0, "offset": 21.0 }
+      "animation": { "type": "sine", "amplitude": 3.0, "period": 60.0, "offset": 21.0 },
+      "cov_increment": 0.5
     }
   ]
 }
@@ -100,12 +102,15 @@ Notes :
 - `device` : identité du device BACnet (`name`, `instance`, `vendor_*`, `bind_address` = adresse UDP d'écoute, `broadcast_address` = adresse de broadcast IPv4 optionnelle, ex. `192.168.1.255` ou `255.255.255.255[:47808]`).
 - `update_interval` : période (s) de recalcul des animations.
 - `objects` : liste des objets BACnet.
+- `cov_increment` (optionnel, objets analogiques uniquement) : variation minimale de `presentValue` declenchant une notification COV (`0.0` = notifier a chaque changement, defaut).
 - `bbmd` : section BBMD (voir ci-dessous) : `enabled` (booléen) et `peers` (liste d'adresses `ip:port` des autres BBMD, = BDT initiale).
 
 ### Types d'objets supportés
 
 | `type` | Écriture externe | Propriétés spécifiques |
 |---|---|---|
+| `analogInput` / `analogOutput` / `analogValue` | AV/AO oui | `value` (float), `units`, `cov_increment` |
+| `binaryInput` / `binaryOutput` / `binaryValue` | BV/BO oui | `value` (`active`/`inactive`), `polarity` |
 | `analogInput` / `analogOutput` / `analogValue` | AV/AO oui | `value` (float), `units` |
 | `binaryInput` / `binaryOutput` / `binaryValue` | BV/BO oui | `value` (voir énumérations ci-dessous), `polarity`, `active_text` / `inactive_text` |
 | `multiStateInput` / `multiStateOutput` / `multiStateValue` | MSV/MSO oui | `value` (1..N), `number_of_states`, `state_text` |
@@ -177,11 +182,14 @@ poetry run bacnet-simulator-client --address <ip:port> who-is [--broadcast]
 poetry run bacnet-simulator-client --address <ip:port> list [--device device:1234]
 poetry run bacnet-simulator-client --address <ip:port> read analogValue:1 presentValue [--index N]
 poetry run bacnet-simulator-client --address <ip:port> write analogValue:1 presentValue 42.5 [--priority 8]
+poetry run bacnet-simulator-client --address <ip:port> subscribe analogValue:1 --count 3 [--unconfirmed] [--lifetime 60]
 poetry run bacnet-simulator-client --address <ip:port> write binaryValue:1 presentValue actif
 poetry run bacnet-simulator-client --address <ip:port> read binaryValue:1 activeText
 poetry run bacnet-simulator-client --address <bbmd:port> read-bdt   # BDT du BBMD
 poetry run bacnet-simulator-client --address <bbmd:port> read-fdt   # FDT du BBMD
 ```
+
+La commande `subscribe` affiche les notifications COV recues (valeur initiale immediate, puis a chaque changement) puis annule la souscription en sortant.
 
 ## Tests
 
@@ -189,7 +197,7 @@ poetry run bacnet-simulator-client --address <bbmd:port> read-fdt   # FDT du BBM
 poetry run python -m unittest discover -s tests -v
 ```
 
-Les tests démarrent le simulateur et un client sur `127.0.0.1` (loopback, ports éphémères) et vérifient Who-Is, ReadProperty, WriteProperty, la liste d'objets et les animations.
+Les tests démarrent le simulateur et un client sur `127.0.0.1` (loopback, ports éphémères) et vérifient Who-Is, ReadProperty, WriteProperty, la liste d'objets et les souscriptions COV (notification initiale, notification sur changement, annulation).
 
 ## Notes réseau
 

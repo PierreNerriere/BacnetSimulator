@@ -53,6 +53,7 @@ class ObjectConfig:
     number_of_states: Optional[int] = None
     state_text: Optional[List[str]] = None
     animation: Optional[Dict[str, Any]] = None
+    cov_increment: Optional[float] = None
 
 
 @dataclass
@@ -142,6 +143,14 @@ def _parse_object(raw: Dict[str, Any], index: int) -> ObjectConfig:
             f"objects[{index}].state_text doit etre une liste de chaines",
         )
 
+    cov_increment = raw.get("cov_increment")
+    if cov_increment is not None:
+        cov_increment = float(cov_increment)
+        _check(
+            animation_kind(obj_type) == "analog",
+            f"objects[{index}]: 'cov_increment' n'est valide que pour les objets analogiques",
+        )
+        _check(cov_increment >= 0, f"objects[{index}].cov_increment doit etre >= 0")
     kind = animation_kind(obj_type)
     value = raw.get("value")
     polarity = str(raw.get("polarity", "normal"))
@@ -200,6 +209,7 @@ def _parse_object(raw: Dict[str, Any], index: int) -> ObjectConfig:
         number_of_states=number_of_states,
         state_text=state_text,
         animation=animation,
+        cov_increment=cov_increment,
     )
 
 

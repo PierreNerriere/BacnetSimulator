@@ -4,6 +4,7 @@ Exemples:
     python -m bacnet_simulator.client --address 127.0.0.1:47808 list
     python -m bacnet_simulator.client --address 127.0.0.1:47808 read analogValue:1 presentValue
     python -m bacnet_simulator.client --address 127.0.0.1:47808 write analogValue:1 presentValue 42.5
+    python -m bacnet_simulator.client --address 127.0.0.1:47808 subscribe analogValue:1 --count 3
     python -m bacnet_simulator.client --address 127.0.0.1:47808 write binaryValue:1 presentValue actif
     python -m bacnet_simulator.client --address 127.0.0.1:47808 who-is
 """
@@ -178,6 +179,22 @@ async def _run(args: argparse.Namespace) -> int:
                 print(f"  {objid[0]}:{objid[1]}  {name}")
             return 0
 
+        if args.command == "subscribe":
+            async with app.change_of_value(
+                target,
+                ObjectIdentifier(args.objid),
+                subscriber_process_identifier=args.process_id,
+                issue_confirmed_notifications=not args.unconfirmed,
+                lifetime=args.lifetime,
+            ) as scm:
+                for _ in range(args.count):
+                    prop_id, value = await asyncio.wait_for(
+                        scm.get_value(), timeout=args.timeout
+                    )
+                    print(f"{getattr(prop_id, 'attr', prop_id)}: {value}")
+            print("souscription annulee")
+            return 0
+
         raise ValueError(f"commande inconnue: {args.command!r}")
     finally:
         app.close()
@@ -229,6 +246,29 @@ def build_parser() -> argparse.ArgumentParser:
         "--device", default="device:1234", help="objet device cible (defaut: device:1234)"
     )
 
+    p_sub = sub.add_parser(
+        "subscribe", help="s'abonner aux notifications COV d'un objet"
+    )
+    p_sub.add_argument("objid", help="ex. analogValue:1")
+    p_sub.add_argument(
+        "--count", type=int, default=1, help="nombre de notifications attendues (defaut: 1)"
+    )
+    p_sub.add_argument(
+        "--timeout", type=float, default=10.0, help="timeout par notification (s)"
+    )
+    p_sub.add_argument(
+        "--lifetime",
+        type=int,
+        default=60,
+        help="duree de vie de la souscription en s, 0 = infinie (defaut: 60)",
+    )
+    p_sub.add_argument(
+        "--process-id", type=int, default=None, help="subscriberProcessIdentifier"
+    )
+    p_sub.add_argument(
+        "--unconfirmed",
+        action="store_true",
+        help="notifications non confirmees (defaut: confirmees)",
     sub.add_parser(
         "read-bdt", help="lire la BDT d'un BBMD (Read-Broadcast-Distribution-Table)"
     )
