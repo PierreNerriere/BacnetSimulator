@@ -27,6 +27,7 @@ from bacpypes3.local.device import DeviceObject
 from bacpypes3.pdu import IPv4Address, PDU
 from bacpypes3.primitivedata import ObjectIdentifier
 
+from .network import apply_broadcast_address
 from .enums import cast_binary, cast_polarity
 
 
@@ -125,6 +126,9 @@ async def _bbmd_command(args: argparse.Namespace, target: IPv4Address) -> int:
 
 
 async def _run(args: argparse.Namespace) -> int:
+    local_address = args.local_address or "0.0.0.0:0"
+    app = NormalApplication(_client_device(), IPv4Address(local_address))
+    apply_broadcast_address(app, local_address, args.broadcast_address)
     target = IPv4Address(args.address)
 
     if args.command in ("read-bdt", "read-fdt"):
@@ -193,6 +197,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--local-address",
         default=None,
         help="adresse locale du client, ex. 0.0.0.0:47809 (defaut: port ephemere)",
+    )
+    parser.add_argument(
+        "--broadcast-address",
+        default=None,
+        help="adresse de broadcast IPv4 pour who-is --broadcast "
+        "(detectee automatiquement si absente)",
     )
     parser.add_argument("--timeout", type=float, default=3.0, help="timeout who-is (s)")
     sub = parser.add_subparsers(dest="command", required=True)

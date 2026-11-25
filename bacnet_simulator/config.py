@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Union
 from bacpypes3.pdu import IPv4Address
 
 from .animations import allowed_animations, animation_kind
+from .network import parse_broadcast_address
 from .enums import cast_binary, cast_polarity
 
 SUPPORTED_TYPES = (
@@ -35,6 +36,7 @@ class DeviceConfig:
     firmware_revision: str = "1.0"
     software_version: str = "0.1.0"
     bind_address: str = "0.0.0.0:47808"
+    broadcast_address: Optional[str] = None
 
 
 @dataclass
@@ -89,9 +91,16 @@ def _parse_device(raw: Dict[str, Any]) -> DeviceConfig:
         firmware_revision=str(raw.get("firmware_revision", DeviceConfig.firmware_revision)),
         software_version=str(raw.get("software_version", DeviceConfig.software_version)),
         bind_address=str(raw.get("bind_address", DeviceConfig.bind_address)),
+        broadcast_address=raw.get("broadcast_address"),
     )
     _check(0 <= cfg.instance <= MAX_INSTANCE, f"device.instance hors limites: {cfg.instance}")
     _check(cfg.name, "device.name ne peut pas etre vide")
+    if cfg.broadcast_address is not None:
+        cfg.broadcast_address = str(cfg.broadcast_address)
+        try:
+            parse_broadcast_address(cfg.broadcast_address, 47808)
+        except ValueError as err:
+            raise ValueError(f"device.broadcast_address invalide: {err}") from err
     return cfg
 
 
