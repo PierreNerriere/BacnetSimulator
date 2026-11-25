@@ -13,6 +13,7 @@ from bacpypes3.primitivedata import ObjectIdentifier
 
 from .animations import animate, animation_kind, cast_value
 from .config import SimulatorConfig
+from .network import apply_broadcast_address
 from .objects import build_object
 
 _log = logging.getLogger("bacnet_simulator")
@@ -42,6 +43,8 @@ class BacnetSimulator:
             maxApduLengthAccepted=1476,
             segmentationSupported="segmentedBoth",
         )
+        self.app = NormalApplication(self.device_object, IPv4Address(dev.bind_address))
+        broadcast = apply_broadcast_address(self.app, dev.bind_address, dev.broadcast_address)
         bind_address = IPv4Address(dev.bind_address)
         if self.config.bbmd.enabled:
             self.app = BBMDApplication(self.device_object, bind_address)
@@ -62,6 +65,8 @@ class BacnetSimulator:
             dev.bind_address,
             len(self.objects),
         )
+        if broadcast is not None:
+            _log.info("adresse de broadcast: %s:%d", broadcast[0], broadcast[1])
         if self.config.bbmd.enabled and isinstance(self.app, BBMDApplication):
             _log.info(
                 "mode BBMD actif (Annex J), BDT: %s",

@@ -7,6 +7,8 @@ import sys
 from typing import List, Optional
 
 from . import __version__
+from .config import SimulatorConfig, demo_config, load_config
+from .network import parse_broadcast_address
 from .config import SimulatorConfig, demo_config, load_config, parse_bbmd
 from .simulator import BacnetSimulator
 
@@ -24,6 +26,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--address",
         help="adresse UDP d'ecoute, ex. 0.0.0.0:47808 (defaut: 0.0.0.0:47808)",
+    )
+    parser.add_argument(
+        "--broadcast-address",
+        help="adresse de broadcast IPv4, ex. 192.168.1.255 ou 255.255.255.255[:47808] "
+        "(detectee automatiquement si absente)",
     )
     parser.add_argument("--instance", type=int, help="numero d'instance du device")
     parser.add_argument("--name", help="nom (objectName) du device")
@@ -62,6 +69,13 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.address:
         config.device.bind_address = args.address
+    if args.broadcast_address:
+        try:
+            parse_broadcast_address(args.broadcast_address, 47808)
+        except ValueError as err:
+            log.error("--broadcast-address invalide: %s", err)
+            return 2
+        config.device.broadcast_address = args.broadcast_address
     if args.instance is not None:
         config.device.instance = args.instance
     if args.name:

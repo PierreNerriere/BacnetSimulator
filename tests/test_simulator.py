@@ -21,6 +21,7 @@ from bacpypes3.pdu import IPv4Address, LocalBroadcast, PDU
 
 from bacnet_simulator.client import _bvll_request, _client_device
 from bacnet_simulator.config import parse_config
+from bacnet_simulator.network import detect_broadcast_address, parse_broadcast_address
 from bacnet_simulator.enums import cast_binary, cast_polarity
 from bacnet_simulator.objects import build_object
 from bacnet_simulator.simulator import BacnetSimulator
@@ -212,6 +213,9 @@ class SimulatorIntegrationTest(unittest.IsolatedAsyncioTestCase):
         instances = [int(i_am.iAmDeviceIdentifier[1]) for i_am in i_ams]
         self.assertIn(5678, instances)
 
+    async def test_loopback_bind_keeps_broadcast_unset(self) -> None:
+        self.assertIsNone(self.sim.app.normal.server.broadcast_address)
+
     async def test_animation_changes_value(self) -> None:
         await asyncio.sleep(0.45)
         value = await self.client.read_property(
@@ -368,6 +372,87 @@ class ConfigValidationTest(unittest.TestCase):
                     ]
                 }
             )
+    def test_broadcast_address_accepted(self) -> None:
+        cfg = parse_config({"device": {"broadcast_address": "192.168.1.255:47808"}})
+        self.assertEqual(cfg.device.broadcast_address, "192.168.1.255:47808")
+
+    def test_broadcast_address_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_config({"device": {"broadcast_address": "pas-une-ip"}})
+
+
+class BroadcastAddressHelperTest(unittest.TestCase):
+    def test_parse_with_default_port(self) -> None:
+        self.assertEqual(
+            parse_broadcast_address("192.168.1.255", 47808), ("192.168.1.255", 47808)
+        )
+
+    def test_parse_with_explicit_port(self) -> None:
+        self.assertEqual(
+            parse_broadcast_address("192.168.1.255:47809", 47808), ("192.168.1.255", 47809)
+        )
+
+    def test_parse_invalid_ip_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_broadcast_address("999.1.1.1", 47808)
+
+    def test_parse_invalid_port_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_broadcast_address("10.0.0.255:99999", 47808)
+
+    def test_detect_masked_bind(self) -> None:
+        self.assertEqual(
+            detect_broadcast_address(IPv4Address("10.1.2.3/24:47808")), ("10.1.2.255", 47808)
+        )
+
+    def test_detect_loopback_is_none(self) -> None:
+        self.assertIsNone(detect_broadcast_address(IPv4Address("127.0.0.1:5000")))
+
+    def test_detect_wildcard_bind(self) -> None:
+        result = detect_broadcast_address(IPv4Address("0.0.0.0:47808"))
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertEqual(result[1], 47808)
+        self.assertNotEqual(result[0], "0.0.0.0")
+
+
+class BroadcastIntegrationTest(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self) -> None:
+        self.server_port = _free_port()
+        cfg = parse_config(_test_config(self.server_port))
+        cfg.device.bind_address = f"0.0.0.0:{self.server_port}"
+        cfg.device.broadcast_address = f"127.255.255.255:{self.server_port}"
+        self.sim = BacnetSimulator(cfg)
+        await self.sim.start()
+        self.client_port = _free_port()
+        self.client = NormalApplication(
+            _client_device(), IPv4Address(f"127.0.0.1:{self.client_port}")
+        )
+        await asyncio.sleep(0.1)
+
+    async def asyncTearDown(self) -> None:
+        self.client.close()
+        await self.sim.stop()
+
+    async def test_broadcast_address_applied_and_sendable(self) -> None:
+        server = self.sim.app.normal.server
+        self.assertEqual(server.broadcast_address, ("127.255.255.255", self.server_port))
+        await server.indication(
+            PDU(
+                b"\x81\x0b\x00\x04",
+                source=IPv4Address("127.0.0.1:47808"),
+                destination=LocalBroadcast(),
+            )
+        )
+
+    async def test_who_is_broadcast(self) -> None:
+        self.client.normal.server.broadcast_address = (
+            "127.255.255.255",
+            self.server_port,
+        )
+        i_ams = await self.client.who_is(address=None, timeout=2)
+        instances = [int(i_am.iAmDeviceIdentifier[1]) for i_am in i_ams]
+        self.assertIn(5678, instances)
     def test_example_configs_are_valid(self) -> None:
         from pathlib import Path
 
