@@ -7,6 +7,7 @@ Le simulateur héberge un objet `Device` et une liste d'objets BACnet (AI, AO, A
 - **Who-Is / I-Am** (broadcast et unicast)
 - **ReadProperty** / **ReadPropertyMultiple**
 - **WriteProperty** / **WritePropertyMultiple** (les objets `*Value` et `*Output` sont écrivables, avec priorités pour les sorties)
+- **SubscribeCOV** : notifications COV (confirmees ou non) envoyees a chaque changement de `presentValue` (animation ou ecriture externe) ; une notification initiale est envoyee des la souscription.
 
 ## Installation
 
@@ -64,7 +65,8 @@ Options : `--address 0.0.0.0:47808`, `--instance 1234`, `--name MonDevice`, `-v`
       "name": "AV-Temperature",
       "value": 21.0,
       "units": "degreesCelsius",
-      "animation": { "type": "sine", "amplitude": 3.0, "period": 60.0, "offset": 21.0 }
+      "animation": { "type": "sine", "amplitude": 3.0, "period": 60.0, "offset": 21.0 },
+      "cov_increment": 0.5
     }
   ]
 }
@@ -73,12 +75,13 @@ Options : `--address 0.0.0.0:47808`, `--instance 1234`, `--name MonDevice`, `-v`
 - `device` : identité du device BACnet (`name`, `instance`, `vendor_*`, `bind_address` = adresse UDP d'écoute).
 - `update_interval` : période (s) de recalcul des animations.
 - `objects` : liste des objets BACnet.
+- `cov_increment` (optionnel, objets analogiques uniquement) : variation minimale de `presentValue` declenchant une notification COV (`0.0` = notifier a chaque changement, defaut).
 
 ### Types d'objets supportés
 
 | `type` | Écriture externe | Propriétés spécifiques |
 |---|---|---|
-| `analogInput` / `analogOutput` / `analogValue` | AV/AO oui | `value` (float), `units` |
+| `analogInput` / `analogOutput` / `analogValue` | AV/AO oui | `value` (float), `units`, `cov_increment` |
 | `binaryInput` / `binaryOutput` / `binaryValue` | BV/BO oui | `value` (`active`/`inactive`), `polarity` |
 | `multiStateInput` / `multiStateOutput` / `multiStateValue` | MSV/MSO oui | `value` (1..N), `number_of_states`, `state_text` |
 
@@ -95,7 +98,10 @@ poetry run bacnet-simulator-client --address <ip:port> who-is [--broadcast]
 poetry run bacnet-simulator-client --address <ip:port> list [--device device:1234]
 poetry run bacnet-simulator-client --address <ip:port> read analogValue:1 presentValue [--index N]
 poetry run bacnet-simulator-client --address <ip:port> write analogValue:1 presentValue 42.5 [--priority 8]
+poetry run bacnet-simulator-client --address <ip:port> subscribe analogValue:1 --count 3 [--unconfirmed] [--lifetime 60]
 ```
+
+La commande `subscribe` affiche les notifications COV recues (valeur initiale immediate, puis a chaque changement) puis annule la souscription en sortant.
 
 ## Tests
 
@@ -103,7 +109,7 @@ poetry run bacnet-simulator-client --address <ip:port> write analogValue:1 prese
 poetry run python -m unittest discover -s tests -v
 ```
 
-Les tests démarrent le simulateur et un client sur `127.0.0.1` (loopback, ports éphémères) et vérifient Who-Is, ReadProperty, WriteProperty, la liste d'objets et les animations.
+Les tests démarrent le simulateur et un client sur `127.0.0.1` (loopback, ports éphémères) et vérifient Who-Is, ReadProperty, WriteProperty, la liste d'objets et les souscriptions COV (notification initiale, notification sur changement, annulation).
 
 ## Notes réseau
 

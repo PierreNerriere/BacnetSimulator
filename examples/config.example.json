@@ -16,6 +16,7 @@
       "description": "Temperature ambiante simulee (sinusoide)",
       "value": 21.0,
       "units": "degreesCelsius",
+      "cov_increment": 0.5,
       "animation": { "type": "sine", "amplitude": 3.0, "period": 60.0, "offset": 21.0 }
     },
     {

@@ -6,10 +6,19 @@ import unittest
 
 from bacpypes3.ipv4.app import NormalApplication
 from bacpypes3.pdu import IPv4Address
+from bacpypes3.primitivedata import ObjectIdentifier
 
 from bacnet_simulator.client import _client_device
 from bacnet_simulator.config import parse_config
 from bacnet_simulator.simulator import BacnetSimulator
+
+
+async def _next_present_value(scm, timeout: float = 2.0):
+    """Lit les notifications COV jusqu'a trouver presentValue."""
+    while True:
+        prop_id, value = await asyncio.wait_for(scm.get_value(), timeout=timeout)
+        if prop_id.attr == "presentValue":
+            return value
 
 
 def _free_port() -> int:
@@ -129,6 +138,60 @@ class SimulatorIntegrationTest(unittest.IsolatedAsyncioTestCase):
         )
         self.assertGreater(abs(float(value) - 20.0), 0.01)
 
+    async def test_objects_support_cov(self) -> None:
+        for _obj_cfg, obj in self.sim.objects:
+            self.assertIsNotNone(getattr(obj, "_cov_criteria", None))
+
+    async def test_cov_subscription_initial_notification(self) -> None:
+        async with self.client.change_of_value(
+            self.target, ObjectIdentifier("analogValue:1"), lifetime=60
+        ) as scm:
+            value = await _next_present_value(scm)
+            self.assertAlmostEqual(float(value), 10.0)
+
+    async def test_cov_subscription_on_animation(self) -> None:
+        async with self.client.change_of_value(
+            self.target,
+            ObjectIdentifier("analogValue:2"),
+            issue_confirmed_notifications=False,
+            lifetime=60,
+        ) as scm:
+            values = [
+                float(await _next_present_value(scm, timeout=3.0)) for _ in range(4)
+            ]
+            self.assertGreater(len(set(values)), 1)
+
+    async def test_cov_subscription_on_write_binary(self) -> None:
+        async with self.client.change_of_value(
+            self.target,
+            ObjectIdentifier("binaryValue:1"),
+            issue_confirmed_notifications=False,
+            lifetime=60,
+        ) as scm:
+            await _next_present_value(scm)
+            await self.client.write_property(
+                self.target, "binaryValue:1", "presentValue", "active"
+            )
+            value = await _next_present_value(scm)
+            self.assertEqual(str(value), "active")
+
+    async def test_cov_unsubscribe_stops_notifications(self) -> None:
+        scm = self.client.change_of_value(
+            self.target,
+            ObjectIdentifier("analogValue:1"),
+            issue_confirmed_notifications=False,
+            lifetime=60,
+        )
+        async with scm:
+            await _next_present_value(scm)
+        while not scm.queue.empty():
+            scm.queue.get_nowait()
+        await self.client.write_property(
+            self.target, "analogValue:1", "presentValue", 55.5
+        )
+        await asyncio.sleep(0.4)
+        self.assertTrue(scm.queue.empty())
+
 
 class ConfigValidationTest(unittest.TestCase):
     def test_unknown_type_rejected(self) -> None:
@@ -176,6 +239,51 @@ class ConfigValidationTest(unittest.TestCase):
 
         cfg = demo_config()
         self.assertEqual(len(cfg.objects), 4)
+
+    def test_cov_increment_accepted_for_analog(self) -> None:
+        cfg = parse_config(
+            {
+                "objects": [
+                    {
+                        "type": "analogValue",
+                        "instance": 1,
+                        "name": "a",
+                        "cov_increment": 0.5,
+                    }
+                ]
+            }
+        )
+        self.assertEqual(cfg.objects[0].cov_increment, 0.5)
+
+    def test_cov_increment_rejected_when_negative(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_config(
+                {
+                    "objects": [
+                        {
+                            "type": "analogValue",
+                            "instance": 1,
+                            "name": "a",
+                            "cov_increment": -1.0,
+                        }
+                    ]
+                }
+            )
+
+    def test_cov_increment_rejected_for_non_analog(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_config(
+                {
+                    "objects": [
+                        {
+                            "type": "binaryValue",
+                            "instance": 1,
+                            "name": "b",
+                            "cov_increment": 1.0,
+                        }
+                    ]
+                }
+            )
 
 
 if __name__ == "__main__":
