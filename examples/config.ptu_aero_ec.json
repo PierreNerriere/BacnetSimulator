@@ -27,7 +27,9 @@
       "instance": 201,
       "name": "PTU_BlindTranslationCmdNord",
       "description": "Commande stores facade Nord",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 1.0,
+      "animation": { "type": "sine", "amplitude": 50.0, "period": 120.0, "offset": 50.0 }
     },
     {
       "type": "analogValue",
@@ -168,7 +170,9 @@
       "instance": 13,
       "name": "AERO_EffectSpaceTemp",
       "description": "Temperature ambiante",
-      "value": 22.5
+      "value": 22.5,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 1.5, "period": 60.0, "offset": 22.5 }
     },
     {
       "type": "analogValue",
@@ -182,7 +186,8 @@
       "instance": 39,
       "name": "AERO_StandbyCoolSP",
       "description": "Consigne standby froid",
-      "value": 27.0
+      "value": 27.0,
+      "cov_increment": 0.5
     },
     {
       "type": "analogValue",
@@ -224,14 +229,18 @@
       "instance": 107,
       "name": "AERO_V2V_Chaud",
       "description": "Signal vanne chaud",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 1.0,
+      "animation": { "type": "sine", "amplitude": 50.0, "period": 120.0, "offset": 50.0 }
     },
     {
       "type": "analogOutput",
       "instance": 108,
       "name": "AERO_VitesseAERO",
       "description": "Vitesse de ventilation",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 1.0,
+      "animation": { "type": "sine", "amplitude": 50.0, "period": 90.0, "offset": 50.0 }
     },
     {
       "type": "binaryValue",
@@ -245,42 +254,54 @@
       "instance": 1151,
       "name": "RC1_Temp",
       "description": "Temperature ambiante",
-      "value": 22.5
+      "value": 22.5,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 3.0, "period": 60.0, "offset": 21.0 }
     },
     {
       "type": "analogValue",
       "instance": 1152,
       "name": "RC1_SetPtOffset",
       "description": "Decalage de consigne",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 3.0, "period": 60.0, "offset":0.0 }
     },
     {
       "type": "analogValue",
       "instance": 1153,
       "name": "RC1_CO2",
       "description": "Mesure CO2 ambiante",
-      "value": 450.0
+      "value": 450.0,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 120.0, "period": 60.0, "offset":450.0 }
     },
     {
       "type": "analogValue",
       "instance": 1154,
       "name": "RC1_CsCO2",
       "description": "Consigne CO2",
-      "value": 800.0
+      "value": 800.0,
+      "cov_increment": 10.0,
+      "animation": { "type": "sine", "amplitude": 25.0, "period": 120.0, "offset": 800.0 }
     },
     {
       "type": "analogValue",
       "instance": 1156,
       "name": "RC1_SignalBDV",
       "description": "Signal BDV de la zone",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 80.0, "period": 60.0, "offset":50.0 }
     },
     {
       "type": "analogValue",
       "instance": 1141,
       "name": "RC1_Luminosite",
       "description": "Luminosite moyenne",
-      "value": 250.0
+      "value": 250.0,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 100.0, "period": 60.0, "offset":250.0 }
     },
     {
       "type": "binaryValue",
@@ -294,42 +315,54 @@
       "instance": 1251,
       "name": "RC2_Temp",
       "description": "Temperature ambiante",
-      "value": 22.5
+      "value": 22.5,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 3.0, "period": 60.0, "offset": 21.0 }
     },
     {
       "type": "analogValue",
       "instance": 1252,
       "name": "RC2_SetPtOffset",
       "description": "Decalage de consigne",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 3.0, "period": 60.0, "offset":0.0 }
     },
     {
       "type": "analogValue",
       "instance": 1253,
       "name": "RC2_CO2",
       "description": "Mesure CO2 ambiante",
-      "value": 450.0
+      "value": 450.0,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 120.0, "period": 60.0, "offset":450.0 }
     },
     {
       "type": "analogValue",
       "instance": 1254,
       "name": "RC2_CsCO2",
       "description": "Consigne CO2",
-      "value": 800.0
+      "value": 800.0,
+      "cov_increment": 10.0,
+      "animation": { "type": "sine", "amplitude": 25.0, "period": 150.0, "offset": 800.0 }
     },
     {
       "type": "analogValue",
       "instance": 1256,
       "name": "RC2_SignalBDV",
       "description": "Signal BDV de la zone",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 80.0, "period": 60.0, "offset":50.0 }
     },
     {
       "type": "analogValue",
       "instance": 1241,
       "name": "RC2_Luminosite",
       "description": "Luminosite moyenne",
-      "value": 250.0
+      "value": 250.0,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 100.0, "period": 60.0, "offset":250.0 }
     },
     {
       "type": "binaryValue",
@@ -343,42 +376,54 @@
       "instance": 1351,
       "name": "RC3_Temp",
       "description": "Temperature ambiante",
-      "value": 22.5
+      "value": 22.5,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 3.0, "period": 60.0, "offset": 21.0 }
     },
     {
       "type": "analogValue",
       "instance": 1352,
       "name": "RC3_SetPtOffset",
       "description": "Decalage de consigne",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 3.0, "period": 60.0, "offset":0.0 }
     },
     {
       "type": "analogValue",
       "instance": 1353,
       "name": "RC3_CO2",
       "description": "Mesure CO2 ambiante",
-      "value": 450.0
+      "value": 450.0,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 120.0, "period": 60.0, "offset":450.0 }
     },
     {
       "type": "analogValue",
       "instance": 1354,
       "name": "RC3_CsCO2",
       "description": "Consigne CO2",
-      "value": 800.0
+      "value": 800.0,
+      "cov_increment": 10.0,
+      "animation": { "type": "sine", "amplitude": 25.0, "period": 180.0, "offset": 800.0 }
     },
     {
       "type": "analogValue",
       "instance": 1356,
       "name": "RC3_SignalBDV",
       "description": "Signal BDV de la zone",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 80.0, "period": 60.0, "offset":50.0 }
     },
     {
       "type": "analogValue",
       "instance": 1341,
       "name": "RC3_Luminosite",
       "description": "Luminosite moyenne",
-      "value": 250.0
+      "value": 250.0,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 100.0, "period": 60.0, "offset":250.0 }
     },
     {
       "type": "binaryValue",
@@ -392,42 +437,54 @@
       "instance": 1451,
       "name": "RC4_Temp",
       "description": "Temperature ambiante",
-      "value": 22.5
+      "value": 22.5,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 3.0, "period": 60.0, "offset": 21.0 }
     },
     {
       "type": "analogValue",
       "instance": 1452,
       "name": "RC4_SetPtOffset",
       "description": "Decalage de consigne",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 3.0, "period": 60.0, "offset":0.0 }
     },
     {
       "type": "analogValue",
       "instance": 1453,
       "name": "RC4_CO2",
       "description": "Mesure CO2 ambiante",
-      "value": 450.0
+      "value": 450.0,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 120.0, "period": 60.0, "offset":450.0 }
     },
     {
       "type": "analogValue",
       "instance": 1454,
       "name": "RC4_CsCO2",
       "description": "Consigne CO2",
-      "value": 800.0
+      "value": 800.0,
+      "cov_increment": 10.0,
+      "animation": { "type": "sine", "amplitude": 25.0, "period": 210.0, "offset": 800.0 }
     },
     {
       "type": "analogValue",
       "instance": 1456,
       "name": "RC4_SignalBDV",
       "description": "Signal BDV de la zone",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 80.0, "period": 60.0, "offset":50.0 }
     },
     {
       "type": "analogValue",
       "instance": 1441,
       "name": "RC4_Luminosite",
       "description": "Luminosite moyenne",
-      "value": 250.0
+      "value": 250.0,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 100.0, "period": 60.0, "offset":250.0 }
     },
     {
       "type": "binaryValue",
@@ -441,42 +498,54 @@
       "instance": 1551,
       "name": "RC5_Temp",
       "description": "Temperature ambiante",
-      "value": 22.5
+      "value": 22.5,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 3.0, "period": 60.0, "offset": 21.0 }
     },
     {
       "type": "analogValue",
       "instance": 1552,
       "name": "RC5_SetPtOffset",
       "description": "Decalage de consigne",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 3.0, "period": 60.0, "offset":0.0 }
     },
     {
       "type": "analogValue",
       "instance": 1553,
       "name": "RC5_CO2",
       "description": "Mesure CO2 ambiante",
-      "value": 450.0
+      "value": 450.0,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 120.0, "period": 60.0, "offset":450.0 }
     },
     {
       "type": "analogValue",
       "instance": 1554,
       "name": "RC5_CsCO2",
       "description": "Consigne CO2",
-      "value": 800.0
+      "value": 800.0,
+      "cov_increment": 10.0,
+      "animation": { "type": "sine", "amplitude": 25.0, "period": 240.0, "offset": 800.0 }
     },
     {
       "type": "analogValue",
       "instance": 1556,
       "name": "RC5_SignalBDV",
       "description": "Signal BDV de la zone",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 80.0, "period": 60.0, "offset":50.0 }
     },
     {
       "type": "analogValue",
       "instance": 1541,
       "name": "RC5_Luminosite",
       "description": "Luminosite moyenne",
-      "value": 250.0
+      "value": 250.0,
+      "cov_increment": 0.5,
+      "animation": { "type": "sine", "amplitude": 100.0, "period": 60.0, "offset":250.0 }
     },
     {
       "type": "binaryValue",
@@ -490,63 +559,81 @@
       "instance": 2511,
       "name": "ECL1_S1_Eclairage",
       "description": "Etat eclairage module 1 sortie 1 - 0 a 100% (defauts : -1=Lampe, -2=Ballast, -3=Court-circuit DALI, -4=Alim module, -5=Liaison subnet)",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 1.0,
+      "animation": { "type": "sine", "amplitude": 50.0, "period": 90.0, "offset": 50.0 }
     },
     {
       "type": "analogValue",
       "instance": 2512,
       "name": "ECL1_S2_Eclairage",
       "description": "Etat eclairage module 1 sortie 2 - 0 a 100% (codes defaut -1 a -5)",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 1.0,
+      "animation": { "type": "sine", "amplitude": 50.0, "period": 120.0, "offset": 50.0 }
     },
     {
       "type": "analogValue",
       "instance": 2513,
       "name": "ECL1_S3_Eclairage",
       "description": "Etat eclairage module 1 sortie 3 - 0 a 100% (codes defaut -1 a -5)",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 1.0,
+      "animation": { "type": "sine", "amplitude": 50.0, "period": 150.0, "offset": 50.0 }
     },
     {
       "type": "analogValue",
       "instance": 2514,
       "name": "ECL1_S4_Eclairage",
       "description": "Etat eclairage module 1 sortie 4 - 0 a 100% (codes defaut -1 a -5)",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 1.0,
+      "animation": { "type": "sine", "amplitude": 50.0, "period": 180.0, "offset": 50.0 }
     },
     {
       "type": "analogValue",
       "instance": 2521,
       "name": "ECL2_S1_Eclairage",
       "description": "Etat eclairage module 2 sortie 1 - 0 a 100% (codes defaut -1 a -5)",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 1.0,
+      "animation": { "type": "sine", "amplitude": 50.0, "period": 210.0, "offset": 50.0 }
     },
     {
       "type": "analogValue",
       "instance": 2522,
       "name": "ECL2_S2_Eclairage",
       "description": "Etat eclairage module 2 sortie 2 - 0 a 100% (codes defaut -1 a -5)",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 1.0,
+      "animation": { "type": "sine", "amplitude": 50.0, "period": 240.0, "offset": 50.0 }
     },
     {
       "type": "analogValue",
       "instance": 2523,
       "name": "ECL2_S3_Eclairage",
       "description": "Etat eclairage module 2 sortie 3 - 0 a 100% (codes defaut -1 a -5)",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 1.0,
+      "animation": { "type": "sine", "amplitude": 50.0, "period": 270.0, "offset": 50.0 }
     },
     {
       "type": "analogValue",
       "instance": 2524,
       "name": "ECL2_S4_Eclairage",
       "description": "Etat eclairage module 2 sortie 4 - 0 a 100% (codes defaut -1 a -5)",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 1.0,
+      "animation": { "type": "sine", "amplitude": 50.0, "period": 300.0, "offset": 50.0 }
     },
     {
       "type": "analogValue",
       "instance": 2631,
       "name": "Store3_1_EtatStore",
       "description": "Etat store module 3 index 1 - -1 a 100% (defaut module si -1)",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 1.0,
+      "animation": { "type": "sine", "amplitude": 50.0, "period": 120.0, "offset": 50.0 }
     },
     {
       "type": "binaryValue",
@@ -560,7 +647,9 @@
       "instance": 2632,
       "name": "Store3_2_EtatStore",
       "description": "Etat store module 3 index 2 - -1 a 100% (defaut module si -1)",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 1.0,
+      "animation": { "type": "sine", "amplitude": 50.0, "period": 150.0, "offset": 50.0 }
     },
     {
       "type": "binaryValue",
@@ -574,7 +663,9 @@
       "instance": 2633,
       "name": "Store3_3_EtatStore",
       "description": "Etat store module 3 index 3 - -1 a 100% (defaut module si -1)",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 1.0,
+      "animation": { "type": "sine", "amplitude": 50.0, "period": 180.0, "offset": 50.0 }
     },
     {
       "type": "binaryValue",
@@ -588,7 +679,9 @@
       "instance": 2634,
       "name": "Store3_4_EtatStore",
       "description": "Etat store module 3 index 4 - -1 a 100% (defaut module si -1)",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 1.0,
+      "animation": { "type": "sine", "amplitude": 50.0, "period": 210.0, "offset": 50.0 }
     },
     {
       "type": "binaryValue",
@@ -602,7 +695,9 @@
       "instance": 2641,
       "name": "Store4_1_EtatStore",
       "description": "Etat store module 4 index 1 - -1 a 100% (defaut module si -1)",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 1.0,
+      "animation": { "type": "sine", "amplitude": 50.0, "period": 240.0, "offset": 50.0 }
     },
     {
       "type": "binaryValue",
@@ -616,7 +711,9 @@
       "instance": 2642,
       "name": "Store4_2_EtatStore",
       "description": "Etat store module 4 index 2 - -1 a 100% (defaut module si -1)",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 1.0,
+      "animation": { "type": "sine", "amplitude": 50.0, "period": 270.0, "offset": 50.0 }
     },
     {
       "type": "binaryValue",
@@ -630,7 +727,9 @@
       "instance": 2643,
       "name": "Store4_3_EtatStore",
       "description": "Etat store module 4 index 3 - -1 a 100% (defaut module si -1)",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 1.0,
+      "animation": { "type": "sine", "amplitude": 50.0, "period": 300.0, "offset": 50.0 }
     },
     {
       "type": "binaryValue",
@@ -644,7 +743,9 @@
       "instance": 2644,
       "name": "Store4_4_EtatStore",
       "description": "Etat store module 4 index 4 - -1 a 100% (defaut module si -1)",
-      "value": 0.0
+      "value": 0.0,
+      "cov_increment": 1.0,
+      "animation": { "type": "sine", "amplitude": 50.0, "period": 330.0, "offset": 50.0 }
     },
     {
       "type": "binaryValue",
