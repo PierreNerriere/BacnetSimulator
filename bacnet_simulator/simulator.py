@@ -3,9 +3,9 @@
 import asyncio
 import logging
 import time
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
-from bacpypes3.ipv4.app import NormalApplication
+from bacpypes3.ipv4.app import BBMDApplication, NormalApplication
 from bacpypes3.local.device import DeviceObject
 from bacpypes3.object import Object
 from bacpypes3.pdu import IPv4Address
@@ -24,7 +24,7 @@ class BacnetSimulator:
 
     def __init__(self, config: SimulatorConfig) -> None:
         self.config = config
-        self.app: Optional[NormalApplication] = None
+        self.app: Optional[Union[NormalApplication, BBMDApplication]] = None
         self.device_object: Optional[DeviceObject] = None
         self.objects: List[Tuple[object, Object]] = []
         self._update_task: Optional[asyncio.Task] = None
@@ -45,6 +45,13 @@ class BacnetSimulator:
         )
         self.app = NormalApplication(self.device_object, IPv4Address(dev.bind_address))
         broadcast = apply_broadcast_address(self.app, dev.bind_address, dev.broadcast_address)
+        bind_address = IPv4Address(dev.bind_address)
+        if self.config.bbmd.enabled:
+            self.app = BBMDApplication(self.device_object, bind_address)
+            for peer in self.config.bbmd.peers:
+                self.app.add_peer(IPv4Address(peer))
+        else:
+            self.app = NormalApplication(self.device_object, bind_address)
         for obj_cfg in self.config.objects:
             obj = build_object(obj_cfg)
             self.app.add_object(obj)
@@ -60,6 +67,11 @@ class BacnetSimulator:
         )
         if broadcast is not None:
             _log.info("adresse de broadcast: %s:%d", broadcast[0], broadcast[1])
+        if self.config.bbmd.enabled and isinstance(self.app, BBMDApplication):
+            _log.info(
+                "mode BBMD actif (Annex J), BDT: %s",
+                ", ".join(str(bdte) for bdte in self.app.bbmd.bbmdBDT) or "(vide)",
+            )
         for obj_cfg, _ in self.objects:
             _log.info("  - %s:%d (%s)", obj_cfg.type, obj_cfg.instance, obj_cfg.name)
 

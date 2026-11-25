@@ -5,11 +5,23 @@ import socket
 import unittest
 
 from bacpypes3.ipv4.app import NormalApplication
+from bacpypes3.ipv4.app import BBMDApplication, NormalApplication
+from bacpypes3.ipv4.bvll import (
+    LPCI,
+    ForwardedNPDU,
+    ReadBroadcastDistributionTable,
+    ReadForeignDeviceTable,
+    RegisterForeignDevice,
+    Result,
+    pdu_types,
+)
 from bacpypes3.pdu import IPv4Address, LocalBroadcast, PDU
 
-from bacnet_simulator.client import _client_device
+from bacnet_simulator.client import _bvll_request, _client_device
 from bacnet_simulator.config import parse_config
 from bacnet_simulator.network import detect_broadcast_address, parse_broadcast_address
+from bacnet_simulator.enums import cast_binary, cast_polarity
+from bacnet_simulator.objects import build_object
 from bacnet_simulator.simulator import BacnetSimulator
 
 
@@ -19,6 +31,29 @@ def _free_port() -> int:
     port = sock.getsockname()[1]
     sock.close()
     return port
+
+
+def _decode_bvll(data: bytes):
+    resp = PDU(data)
+    lpci = LPCI.decode(resp)
+    lpdu_class = pdu_types[lpci.bvlciFunction]
+    lpdu = lpdu_class.decode(resp)
+    LPCI.update(lpdu, lpci)
+    return lpdu
+
+
+async def _make_udp_endpoint(port: int):
+    loop = asyncio.get_running_loop()
+    queue: asyncio.Queue = asyncio.Queue()
+
+    class Proto(asyncio.DatagramProtocol):
+        def datagram_received(self, data, addr) -> None:
+            queue.put_nowait(data)
+
+    transport, _ = await loop.create_datagram_endpoint(
+        Proto, local_addr=("127.0.0.1", port)
+    )
+    return transport, queue
 
 
 def _test_config(server_port: int) -> dict:
@@ -49,7 +84,9 @@ def _test_config(server_port: int) -> dict:
                 "type": "binaryValue",
                 "instance": 1,
                 "name": "BV-OnOff",
-                "value": "inactive",
+                "value": "inactif",
+                "active_text": "Actif",
+                "inactive_text": "Inactif",
             },
             {
                 "type": "multiStateValue",
@@ -58,6 +95,20 @@ def _test_config(server_port: int) -> dict:
                 "value": 2,
                 "number_of_states": 3,
                 "state_text": ["Off", "Auto", "Manual"],
+            },
+            {
+                "type": "analogOutput",
+                "instance": 1,
+                "name": "AO-Valve",
+                "value": 30.0,
+                "units": "percent",
+            },
+            {
+                "type": "multiStateOutput",
+                "instance": 1,
+                "name": "MSO-Mode",
+                "value": 1,
+                "number_of_states": 3,
             },
         ],
     }
@@ -103,11 +154,40 @@ class SimulatorIntegrationTest(unittest.IsolatedAsyncioTestCase):
         value = await self.client.read_property(self.target, "binaryValue:1", "presentValue")
         self.assertEqual(str(value), "active")
 
+    async def test_write_binary_value_french_alias(self) -> None:
+        await self.client.write_property(
+            self.target,
+            "binaryValue:1",
+            "presentValue",
+            _cast_write_value("Actif", "binaryValue", "presentValue"),
+        )
+        value = await self.client.read_property(self.target, "binaryValue:1", "presentValue")
+        self.assertEqual(str(value), "active")
+
+    async def test_binary_active_inactive_text(self) -> None:
+        active = await self.client.read_property(self.target, "binaryValue:1", "activeText")
+        inactive = await self.client.read_property(self.target, "binaryValue:1", "inactiveText")
+        self.assertEqual(str(active), "Actif")
+        self.assertEqual(str(inactive), "Inactif")
+
     async def test_read_multistate(self) -> None:
         value = await self.client.read_property(self.target, "multiStateValue:1", "presentValue")
         self.assertEqual(int(value), 2)
         text = await self.client.read_property(self.target, "multiStateValue:1", "stateText", 3)
         self.assertEqual(str(text), "Manual")
+
+    async def test_read_output_priority_array(self) -> None:
+        priority_array = await self.client.read_property(
+            self.target, "analogOutput:1", "priorityArray"
+        )
+        self.assertEqual(len(priority_array), 16)
+        await self.client.read_property(
+            self.target, "analogOutput:1", "currentCommandPriority"
+        )
+        mso_priority_array = await self.client.read_property(
+            self.target, "multiStateOutput:1", "priorityArray"
+        )
+        self.assertEqual(len(mso_priority_array), 16)
 
     async def test_object_list(self) -> None:
         obj_list = await self.client.read_property(self.target, "device:5678", "objectList")
@@ -132,6 +212,10 @@ class SimulatorIntegrationTest(unittest.IsolatedAsyncioTestCase):
             self.target, "analogValue:2", "presentValue"
         )
         self.assertGreater(abs(float(value) - 20.0), 0.01)
+
+    async def test_normal_mode_is_not_bbmd(self) -> None:
+        self.assertIsInstance(self.sim.app, NormalApplication)
+        self.assertFalse(hasattr(self.sim.app, "bbmd"))
 
 
 class ConfigValidationTest(unittest.TestCase):
@@ -262,6 +346,19 @@ class BroadcastIntegrationTest(unittest.IsolatedAsyncioTestCase):
         i_ams = await self.client.who_is(address=None, timeout=2)
         instances = [int(i_am.iAmDeviceIdentifier[1]) for i_am in i_ams]
         self.assertIn(5678, instances)
+    def test_example_configs_are_valid(self) -> None:
+        from pathlib import Path
+
+        from bacnet_simulator.config import load_config
+        from bacnet_simulator.objects import build_object
+
+        examples_dir = Path(__file__).resolve().parent.parent / "examples"
+        paths = sorted(examples_dir.glob("*.json"))
+        self.assertGreaterEqual(len(paths), 2)
+        for path in paths:
+            cfg = load_config(path)
+            for obj in cfg.objects:
+                build_object(obj)
 
 
 if __name__ == "__main__":

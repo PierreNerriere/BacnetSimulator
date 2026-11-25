@@ -5,8 +5,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+from bacpypes3.pdu import IPv4Address
+
 from .animations import allowed_animations, animation_kind
 from .network import parse_broadcast_address
+from .enums import cast_binary, cast_polarity
 
 SUPPORTED_TYPES = (
     "analogInput",
@@ -45,9 +48,23 @@ class ObjectConfig:
     value: Any = None
     units: Optional[str] = None
     polarity: str = "normal"
+    active_text: Optional[str] = None
+    inactive_text: Optional[str] = None
     number_of_states: Optional[int] = None
     state_text: Optional[List[str]] = None
     animation: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class BBMDConfig:
+    """Configuration du mode BBMD (BACnet Broadcast Management Device, Annex J).
+
+    `peers` est la table de distribution de broadcast (BDT) initiale: adresses
+    des autres BBMD vers lesquels les broadcasts recus sont transferes.
+    """
+
+    enabled: bool = False
+    peers: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -55,6 +72,7 @@ class SimulatorConfig:
     device: DeviceConfig = field(default_factory=DeviceConfig)
     objects: List[ObjectConfig] = field(default_factory=list)
     update_interval: float = 1.0
+    bbmd: BBMDConfig = field(default_factory=BBMDConfig)
 
 
 def _check(condition: bool, message: str) -> None:
@@ -124,23 +142,90 @@ def _parse_object(raw: Dict[str, Any], index: int) -> ObjectConfig:
             f"objects[{index}].state_text doit etre une liste de chaines",
         )
 
+    kind = animation_kind(obj_type)
+    value = raw.get("value")
+    polarity = str(raw.get("polarity", "normal"))
+    if kind == "binary":
+        if value is not None:
+            try:
+                value = cast_binary(value)
+            except ValueError as err:
+                raise ValueError(f"objects[{index}].value: {err}") from err
+        try:
+            polarity = cast_polarity(polarity)
+        except ValueError as err:
+            raise ValueError(f"objects[{index}].polarity: {err}") from err
+
+    active_text = raw.get("active_text")
+    inactive_text = raw.get("inactive_text")
+    if (active_text is not None or inactive_text is not None) and kind != "binary":
+        raise ValueError(
+            f"objects[{index}]: 'active_text'/'inactive_text' reserves aux objets binaires"
+        )
+    for label, text in (("active_text", active_text), ("inactive_text", inactive_text)):
+        if text is not None:
+            _check(
+                isinstance(text, str) and text.strip() != "",
+                f"objects[{index}].{label} doit etre une chaine non vide",
+            )
+
+    if kind == "multistate":
+        if value is not None:
+            try:
+                value = int(value)
+            except (TypeError, ValueError):
+                raise ValueError(
+                    f"objects[{index}].value doit etre un entier pour {obj_type!r}"
+                ) from None
+            _check(
+                1 <= value <= number_of_states,
+                f"objects[{index}].value hors limites: {value} (1..{number_of_states})",
+            )
+        if state_text is not None:
+            _check(
+                len(state_text) == number_of_states,
+                f"objects[{index}].state_text doit contenir {number_of_states} libelle(s)",
+            )
+
     return ObjectConfig(
         type=obj_type,
         instance=instance,
         name=name,
         description=str(raw.get("description", "")),
-        value=raw.get("value"),
+        value=value,
         units=raw.get("units"),
-        polarity=str(raw.get("polarity", "normal")),
+        polarity=polarity,
+        active_text=active_text,
+        inactive_text=inactive_text,
         number_of_states=number_of_states,
         state_text=state_text,
         animation=animation,
     )
 
 
+def parse_bbmd(raw: Any) -> BBMDConfig:
+    """Valide la section 'bbmd' de la configuration JSON."""
+    if raw is None:
+        return BBMDConfig()
+    _check(isinstance(raw, dict), "'bbmd' doit etre un objet JSON")
+    enabled = bool(raw.get("enabled", False))
+    peers = raw.get("peers", [])
+    _check(
+        isinstance(peers, list) and all(isinstance(p, str) for p in peers),
+        "'bbmd.peers' doit etre une liste de chaines 'ip:port'",
+    )
+    for peer in peers:
+        try:
+            IPv4Address(peer)
+        except Exception as err:
+            raise ValueError(f"'bbmd.peers': adresse invalide {peer!r} ({err})")
+    return BBMDConfig(enabled=enabled, peers=list(peers))
+
+
 def parse_config(data: Dict[str, Any]) -> SimulatorConfig:
     _check(isinstance(data, dict), "la configuration doit etre un objet JSON")
     device = _parse_device(data.get("device", {}))
+    bbmd = parse_bbmd(data.get("bbmd"))
     raw_objects = data.get("objects", [])
     _check(isinstance(raw_objects, list), "'objects' doit etre une liste")
     objects = [_parse_object(raw, i) for i, raw in enumerate(raw_objects)]
@@ -154,7 +239,9 @@ def parse_config(data: Dict[str, Any]) -> SimulatorConfig:
     update_interval = float(data.get("update_interval", 1.0))
     _check(update_interval > 0, "'update_interval' doit etre > 0")
 
-    return SimulatorConfig(device=device, objects=objects, update_interval=update_interval)
+    return SimulatorConfig(
+        device=device, objects=objects, update_interval=update_interval, bbmd=bbmd
+    )
 
 
 def load_config(path: Union[str, Path]) -> SimulatorConfig:
@@ -201,7 +288,9 @@ def demo_config() -> SimulatorConfig:
                     "type": "binaryValue",
                     "instance": 1,
                     "name": "BV-Pump",
-                    "value": "inactive",
+                    "value": "inactif",
+                    "active_text": "Marche",
+                    "inactive_text": "Arret",
                     "animation": {"type": "toggle", "period": 15.0},
                 },
                 {

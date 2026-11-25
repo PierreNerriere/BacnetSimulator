@@ -1,0 +1,692 @@
+{
+  "device": {
+    "name": "PTU-AERO-EC-Simule",
+    "instance": 2000,
+    "vendor_name": "VibeSim",
+    "vendor_identifier": 999,
+    "model_name": "BacnetDeviceSimulator",
+    "bind_address": "0.0.0.0:47808"
+  },
+  "bbmd": {
+  "enabled": true,
+  "peers": ["0.0.0.0:47808"]
+},
+  "update_interval": 1.0,
+  "objects": [
+    {
+      "type": "multiStateValue",
+      "instance": 201,
+      "name": "PTU_OccupancyCmd",
+      "description": "Commande mode d'occupation - Ecrit par le programme horaire d'occupation de la supervision",
+      "value": 1,
+      "number_of_states": 4,
+      "state_text": ["Occupe", "Inoccupe", "Bypass", "Standby"]
+    },
+    {
+      "type": "analogValue",
+      "instance": 201,
+      "name": "PTU_BlindTranslationCmdNord",
+      "description": "Commande stores facade Nord",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 202,
+      "name": "PTU_BlindTranslationCmdSud",
+      "description": "Commande stores facade Sud",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 203,
+      "name": "PTU_BlindTranslationCmdEst",
+      "description": "Commande stores facade Est",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 204,
+      "name": "PTU_BlindTranslationCmdOuest",
+      "description": "Commande stores facade Ouest",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 205,
+      "name": "PTU_TranslationOcc",
+      "description": "Position initiales stores sur Occupation",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 206,
+      "name": "PTU_TranslationUnocc",
+      "description": "Position initiales stores sur Inoccupation",
+      "value": 0.0
+    },
+    {
+      "type": "binaryValue",
+      "instance": 51,
+      "name": "PTU_Defaut_ECL1",
+      "description": "Defaut module d'eclairage 1",
+      "value": "inactive"
+    },
+    {
+      "type": "binaryValue",
+      "instance": 52,
+      "name": "PTU_Defaut_ECL2",
+      "description": "Defaut module d'eclairage 2",
+      "value": "inactive"
+    },
+    {
+      "type": "binaryValue",
+      "instance": 53,
+      "name": "PTU_Defaut_S3",
+      "description": "Defaut module de store 3",
+      "value": "inactive"
+    },
+    {
+      "type": "binaryValue",
+      "instance": 54,
+      "name": "PTU_Defaut_S4",
+      "description": "Defaut module de store 4",
+      "value": "inactive"
+    },
+    {
+      "type": "binaryValue",
+      "instance": 41,
+      "name": "PTU_Defaut_RC1",
+      "description": "Defaut Allure UNITOUCH / UNITOUCH CH / EC Smart Comfort 1",
+      "value": "inactive"
+    },
+    {
+      "type": "binaryValue",
+      "instance": 42,
+      "name": "PTU_Defaut_RC2",
+      "description": "Defaut Allure EC Smart Comfort 2",
+      "value": "inactive"
+    },
+    {
+      "type": "binaryValue",
+      "instance": 43,
+      "name": "PTU_Defaut_RC3",
+      "description": "Defaut multicapteur 3",
+      "value": "inactive"
+    },
+    {
+      "type": "binaryValue",
+      "instance": 44,
+      "name": "PTU_Defaut_RC4",
+      "description": "Defaut multicapteur 4",
+      "value": "inactive"
+    },
+    {
+      "type": "binaryValue",
+      "instance": 45,
+      "name": "PTU_Defaut_RC5",
+      "description": "Defaut multicapteur 5",
+      "value": "inactive"
+    },
+    {
+      "type": "multiStateValue",
+      "instance": 1,
+      "name": "AERO_ControlMode",
+      "description": "Mode de controle Maitre/Esclave - 1=Local, 2=Maitre, 3=Esclave",
+      "value": 1,
+      "number_of_states": 3,
+      "state_text": ["Local", "Maitre", "Esclave"]
+    },
+    {
+      "type": "multiStateValue",
+      "instance": 2,
+      "name": "AERO_HVACModeCmd",
+      "description": "Commande mode de regulation - 1=Auto, 2=Chaud, 7=Arret",
+      "value": 1,
+      "number_of_states": 7,
+      "state_text": ["Auto", "Chaud", "", "", "", "", "Arret"]
+    },
+    {
+      "type": "multiStateValue",
+      "instance": 14,
+      "name": "AERO_HVACModeStatus",
+      "description": "Mode de regulation effective - 1=Auto, 2=Chaud, 7=Arret",
+      "value": 1,
+      "number_of_states": 7,
+      "state_text": ["Auto", "Chaud", "", "", "", "", "Arret"]
+    },
+    {
+      "type": "multiStateValue",
+      "instance": 15,
+      "name": "AERO_OccupancyStatus",
+      "description": "Mode d'occupation effective - 1=Occupe, 2=Inoccupe, 3=Bypass, 4=Standby",
+      "value": 1,
+      "number_of_states": 4,
+      "state_text": ["Occupe", "Inoccupe", "Bypass", "Standby"]
+    },
+    {
+      "type": "analogValue",
+      "instance": 13,
+      "name": "AERO_EffectSpaceTemp",
+      "description": "Temperature ambiante",
+      "value": 22.5
+    },
+    {
+      "type": "analogValue",
+      "instance": 38,
+      "name": "AERO_UnoccCoolSP",
+      "description": "Consigne inoccupe froid",
+      "value": 28.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 39,
+      "name": "AERO_StandbyCoolSP",
+      "description": "Consigne standby froid",
+      "value": 27.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 40,
+      "name": "AERO_OccCoolSP",
+      "description": "Consigne occupe froid",
+      "value": 24.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 41,
+      "name": "AERO_OccHeatSP",
+      "description": "Consigne occupe chaud",
+      "value": 20.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 42,
+      "name": "AERO_StandbyHeatSP",
+      "description": "Consigne standby chaud",
+      "value": 18.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 43,
+      "name": "AERO_UnoccHeatSP",
+      "description": "Consigne inoccupe chaud",
+      "value": 16.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 50,
+      "name": "AERO_EffectSP",
+      "description": "Consigne effective",
+      "value": 22.0
+    },
+    {
+      "type": "analogOutput",
+      "instance": 107,
+      "name": "AERO_V2V_Chaud",
+      "description": "Signal vanne chaud",
+      "value": 0.0
+    },
+    {
+      "type": "analogOutput",
+      "instance": 108,
+      "name": "AERO_VitesseAERO",
+      "description": "Vitesse de ventilation",
+      "value": 0.0
+    },
+    {
+      "type": "binaryValue",
+      "instance": 3,
+      "name": "AERO_WindowStatus",
+      "description": "Synthese contact fenetre - 0=Ouverte, 1=Fermee",
+      "value": "inactive"
+    },
+    {
+      "type": "analogValue",
+      "instance": 1151,
+      "name": "RC1_Temp",
+      "description": "Temperature ambiante",
+      "value": 22.5
+    },
+    {
+      "type": "analogValue",
+      "instance": 1152,
+      "name": "RC1_SetPtOffset",
+      "description": "Decalage de consigne",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 1153,
+      "name": "RC1_CO2",
+      "description": "Mesure CO2 ambiante",
+      "value": 450.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 1154,
+      "name": "RC1_CsCO2",
+      "description": "Consigne CO2",
+      "value": 800.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 1156,
+      "name": "RC1_SignalBDV",
+      "description": "Signal BDV de la zone",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 1141,
+      "name": "RC1_Luminosite",
+      "description": "Luminosite moyenne",
+      "value": 250.0
+    },
+    {
+      "type": "binaryValue",
+      "instance": 101,
+      "name": "RC1_Occupation",
+      "description": "Occupation de la zone",
+      "value": "inactive"
+    },
+    {
+      "type": "analogValue",
+      "instance": 1251,
+      "name": "RC2_Temp",
+      "description": "Temperature ambiante",
+      "value": 22.5
+    },
+    {
+      "type": "analogValue",
+      "instance": 1252,
+      "name": "RC2_SetPtOffset",
+      "description": "Decalage de consigne",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 1253,
+      "name": "RC2_CO2",
+      "description": "Mesure CO2 ambiante",
+      "value": 450.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 1254,
+      "name": "RC2_CsCO2",
+      "description": "Consigne CO2",
+      "value": 800.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 1256,
+      "name": "RC2_SignalBDV",
+      "description": "Signal BDV de la zone",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 1241,
+      "name": "RC2_Luminosite",
+      "description": "Luminosite moyenne",
+      "value": 250.0
+    },
+    {
+      "type": "binaryValue",
+      "instance": 201,
+      "name": "RC2_Occupation",
+      "description": "Occupation de la zone",
+      "value": "inactive"
+    },
+    {
+      "type": "analogValue",
+      "instance": 1351,
+      "name": "RC3_Temp",
+      "description": "Temperature ambiante",
+      "value": 22.5
+    },
+    {
+      "type": "analogValue",
+      "instance": 1352,
+      "name": "RC3_SetPtOffset",
+      "description": "Decalage de consigne",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 1353,
+      "name": "RC3_CO2",
+      "description": "Mesure CO2 ambiante",
+      "value": 450.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 1354,
+      "name": "RC3_CsCO2",
+      "description": "Consigne CO2",
+      "value": 800.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 1356,
+      "name": "RC3_SignalBDV",
+      "description": "Signal BDV de la zone",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 1341,
+      "name": "RC3_Luminosite",
+      "description": "Luminosite moyenne",
+      "value": 250.0
+    },
+    {
+      "type": "binaryValue",
+      "instance": 301,
+      "name": "RC3_Occupation",
+      "description": "Occupation de la zone",
+      "value": "inactive"
+    },
+    {
+      "type": "analogValue",
+      "instance": 1451,
+      "name": "RC4_Temp",
+      "description": "Temperature ambiante",
+      "value": 22.5
+    },
+    {
+      "type": "analogValue",
+      "instance": 1452,
+      "name": "RC4_SetPtOffset",
+      "description": "Decalage de consigne",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 1453,
+      "name": "RC4_CO2",
+      "description": "Mesure CO2 ambiante",
+      "value": 450.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 1454,
+      "name": "RC4_CsCO2",
+      "description": "Consigne CO2",
+      "value": 800.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 1456,
+      "name": "RC4_SignalBDV",
+      "description": "Signal BDV de la zone",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 1441,
+      "name": "RC4_Luminosite",
+      "description": "Luminosite moyenne",
+      "value": 250.0
+    },
+    {
+      "type": "binaryValue",
+      "instance": 401,
+      "name": "RC4_Occupation",
+      "description": "Occupation de la zone",
+      "value": "inactive"
+    },
+    {
+      "type": "analogValue",
+      "instance": 1551,
+      "name": "RC5_Temp",
+      "description": "Temperature ambiante",
+      "value": 22.5
+    },
+    {
+      "type": "analogValue",
+      "instance": 1552,
+      "name": "RC5_SetPtOffset",
+      "description": "Decalage de consigne",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 1553,
+      "name": "RC5_CO2",
+      "description": "Mesure CO2 ambiante",
+      "value": 450.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 1554,
+      "name": "RC5_CsCO2",
+      "description": "Consigne CO2",
+      "value": 800.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 1556,
+      "name": "RC5_SignalBDV",
+      "description": "Signal BDV de la zone",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 1541,
+      "name": "RC5_Luminosite",
+      "description": "Luminosite moyenne",
+      "value": 250.0
+    },
+    {
+      "type": "binaryValue",
+      "instance": 501,
+      "name": "RC5_Occupation",
+      "description": "Occupation de la zone",
+      "value": "inactive"
+    },
+    {
+      "type": "analogValue",
+      "instance": 2511,
+      "name": "ECL1_S1_Eclairage",
+      "description": "Etat eclairage module 1 sortie 1 - 0 a 100% (defauts : -1=Lampe, -2=Ballast, -3=Court-circuit DALI, -4=Alim module, -5=Liaison subnet)",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 2512,
+      "name": "ECL1_S2_Eclairage",
+      "description": "Etat eclairage module 1 sortie 2 - 0 a 100% (codes defaut -1 a -5)",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 2513,
+      "name": "ECL1_S3_Eclairage",
+      "description": "Etat eclairage module 1 sortie 3 - 0 a 100% (codes defaut -1 a -5)",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 2514,
+      "name": "ECL1_S4_Eclairage",
+      "description": "Etat eclairage module 1 sortie 4 - 0 a 100% (codes defaut -1 a -5)",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 2521,
+      "name": "ECL2_S1_Eclairage",
+      "description": "Etat eclairage module 2 sortie 1 - 0 a 100% (codes defaut -1 a -5)",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 2522,
+      "name": "ECL2_S2_Eclairage",
+      "description": "Etat eclairage module 2 sortie 2 - 0 a 100% (codes defaut -1 a -5)",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 2523,
+      "name": "ECL2_S3_Eclairage",
+      "description": "Etat eclairage module 2 sortie 3 - 0 a 100% (codes defaut -1 a -5)",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 2524,
+      "name": "ECL2_S4_Eclairage",
+      "description": "Etat eclairage module 2 sortie 4 - 0 a 100% (codes defaut -1 a -5)",
+      "value": 0.0
+    },
+    {
+      "type": "analogValue",
+      "instance": 2631,
+      "name": "Store3_1_EtatStore",
+      "description": "Etat store module 3 index 1 - -1 a 100% (defaut module si -1)",
+      "value": 0.0
+    },
+    {
+      "type": "binaryValue",
+      "instance": 2631,
+      "name": "Store3_1_Fenetre",
+      "description": "Etat contact fenetre module 3 index 1 - 0=Ouvert, 1=Ferme",
+      "value": "inactive"
+    },
+    {
+      "type": "analogValue",
+      "instance": 2632,
+      "name": "Store3_2_EtatStore",
+      "description": "Etat store module 3 index 2 - -1 a 100% (defaut module si -1)",
+      "value": 0.0
+    },
+    {
+      "type": "binaryValue",
+      "instance": 2632,
+      "name": "Store3_2_Fenetre",
+      "description": "Etat contact fenetre module 3 index 2 - 0=Ouvert, 1=Ferme",
+      "value": "inactive"
+    },
+    {
+      "type": "analogValue",
+      "instance": 2633,
+      "name": "Store3_3_EtatStore",
+      "description": "Etat store module 3 index 3 - -1 a 100% (defaut module si -1)",
+      "value": 0.0
+    },
+    {
+      "type": "binaryValue",
+      "instance": 2633,
+      "name": "Store3_3_Fenetre",
+      "description": "Etat contact fenetre module 3 index 3 - 0=Ouvert, 1=Ferme",
+      "value": "inactive"
+    },
+    {
+      "type": "analogValue",
+      "instance": 2634,
+      "name": "Store3_4_EtatStore",
+      "description": "Etat store module 3 index 4 - -1 a 100% (defaut module si -1)",
+      "value": 0.0
+    },
+    {
+      "type": "binaryValue",
+      "instance": 2634,
+      "name": "Store3_4_Fenetre",
+      "description": "Etat contact fenetre module 3 index 4 - 0=Ouvert, 1=Ferme",
+      "value": "inactive"
+    },
+    {
+      "type": "analogValue",
+      "instance": 2641,
+      "name": "Store4_1_EtatStore",
+      "description": "Etat store module 4 index 1 - -1 a 100% (defaut module si -1)",
+      "value": 0.0
+    },
+    {
+      "type": "binaryValue",
+      "instance": 2641,
+      "name": "Store4_1_Fenetre",
+      "description": "Etat contact fenetre module 4 index 1 - 0=Ouvert, 1=Ferme",
+      "value": "inactive"
+    },
+    {
+      "type": "analogValue",
+      "instance": 2642,
+      "name": "Store4_2_EtatStore",
+      "description": "Etat store module 4 index 2 - -1 a 100% (defaut module si -1)",
+      "value": 0.0
+    },
+    {
+      "type": "binaryValue",
+      "instance": 2642,
+      "name": "Store4_2_Fenetre",
+      "description": "Etat contact fenetre module 4 index 2 - 0=Ouvert, 1=Ferme",
+      "value": "inactive"
+    },
+    {
+      "type": "analogValue",
+      "instance": 2643,
+      "name": "Store4_3_EtatStore",
+      "description": "Etat store module 4 index 3 - -1 a 100% (defaut module si -1)",
+      "value": 0.0
+    },
+    {
+      "type": "binaryValue",
+      "instance": 2643,
+      "name": "Store4_3_Fenetre",
+      "description": "Etat contact fenetre module 4 index 3 - 0=Ouvert, 1=Ferme",
+      "value": "inactive"
+    },
+    {
+      "type": "analogValue",
+      "instance": 2644,
+      "name": "Store4_4_EtatStore",
+      "description": "Etat store module 4 index 4 - -1 a 100% (defaut module si -1)",
+      "value": 0.0
+    },
+    {
+      "type": "binaryValue",
+      "instance": 2644,
+      "name": "Store4_4_Fenetre",
+      "description": "Etat contact fenetre module 4 index 4 - 0=Ouvert, 1=Ferme",
+      "value": "inactive"
+    },
+    {
+      "type": "binaryValue",
+      "instance": 1101,
+      "name": "RC1_Occupation_Alt",
+      "description": "Occupation de la zone (variante instance 1{IndexRC}01 - voir note)",
+      "value": "inactive"
+    },
+    {
+      "type": "binaryValue",
+      "instance": 1201,
+      "name": "RC2_Occupation_Alt",
+      "description": "Occupation de la zone (variante instance 1{IndexRC}01 - voir note)",
+      "value": "inactive"
+    },
+    {
+      "type": "binaryValue",
+      "instance": 1301,
+      "name": "RC3_Occupation_Alt",
+      "description": "Occupation de la zone (variante instance 1{IndexRC}01 - voir note)",
+      "value": "inactive"
+    },
+    {
+      "type": "binaryValue",
+      "instance": 1401,
+      "name": "RC4_Occupation_Alt",
+      "description": "Occupation de la zone (variante instance 1{IndexRC}01 - voir note)",
+      "value": "inactive"
+    },
+    {
+      "type": "binaryValue",
+      "instance": 1501,
+      "name": "RC5_Occupation_Alt",
+      "description": "Occupation de la zone (variante instance 1{IndexRC}01 - voir note)",
+      "value": "inactive"
+    }
+  ]
+}

@@ -6,6 +6,9 @@ from bacpypes3.basetypes import (
     BinaryPV,
     EngineeringUnits,
     EventState,
+    OptionalBinaryPV,
+    OptionalReal,
+    OptionalUnsigned,
     Polarity,
     StatusFlags,
 )
@@ -23,8 +26,9 @@ from bacpypes3.object import (
 )
 from bacpypes3.primitivedata import ObjectIdentifier
 
-from .animations import animation_kind, cast_binary
+from .animations import animation_kind
 from .config import ObjectConfig
+from .enums import BINARY_ACTIVE_TEXT, BINARY_INACTIVE_TEXT, cast_binary, cast_polarity
 
 _OBJECT_CLASSES: Dict[str, type] = {
     "analogInput": AnalogInputObject,
@@ -39,6 +43,12 @@ _OBJECT_CLASSES: Dict[str, type] = {
 }
 
 _OUTPUT_TYPES = {"analogOutput", "binaryOutput", "multiStateOutput"}
+
+_NULL_PRIORITY_VALUE = {
+    "analog": OptionalReal,
+    "binary": OptionalBinaryPV,
+    "multistate": OptionalUnsigned,
+}
 
 
 def _common_kwargs(cfg: ObjectConfig) -> Dict[str, Any]:
@@ -84,16 +94,19 @@ def build_object(cfg: ObjectConfig) -> Object:
         kwargs["units"] = EngineeringUnits(cfg.units or "noUnits")
     elif kind == "binary":
         kwargs["presentValue"] = value
+        kwargs["activeText"] = cfg.active_text or BINARY_ACTIVE_TEXT
+        kwargs["inactiveText"] = cfg.inactive_text or BINARY_INACTIVE_TEXT
         if cfg.type in ("binaryInput", "binaryOutput"):
-            kwargs["polarity"] = Polarity(cfg.polarity)
+            kwargs["polarity"] = Polarity(cast_polarity(cfg.polarity))
     else:
         kwargs["presentValue"] = value
         kwargs["numberOfStates"] = cfg.number_of_states or 2
         kwargs["stateText"] = _state_text(cfg)
 
     if cfg.type in _OUTPUT_TYPES:
-        kwargs["priorityArray"] = [None] * 16
+        null_value = _NULL_PRIORITY_VALUE[kind]
+        kwargs["priorityArray"] = [null_value(null=()) for _ in range(16)]
         kwargs["relinquishDefault"] = value
-        kwargs["currentCommandPriority"] = None
+        kwargs["currentCommandPriority"] = OptionalUnsigned(null=())
 
     return cls(**kwargs)
