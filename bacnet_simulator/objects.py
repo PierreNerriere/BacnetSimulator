@@ -6,10 +6,9 @@ from bacpypes3.basetypes import (
     BinaryPV,
     EngineeringUnits,
     EventState,
-    OptionalBinaryPV,
-    OptionalReal,
     OptionalUnsigned,
     Polarity,
+    PriorityValue,
     StatusFlags,
 )
 from bacpypes3.local.analog import (
@@ -61,10 +60,6 @@ _COV_CRITERIA: Dict[str, type] = {
     "multiStateInput": GenericCriteria,
     "multiStateOutput": GenericCriteria,
     "multiStateValue": GenericCriteria,
-_NULL_PRIORITY_VALUE = {
-    "analog": OptionalReal,
-    "binary": OptionalBinaryPV,
-    "multistate": OptionalUnsigned,
 }
 
 
@@ -124,9 +119,7 @@ def build_object(cfg: ObjectConfig) -> Object:
         kwargs["stateText"] = _state_text(cfg)
 
     if cfg.type in _OUTPUT_TYPES:
-        kwargs["relinquishDefault"] = value
-        null_value = _NULL_PRIORITY_VALUE[kind]
-        kwargs["priorityArray"] = [null_value(null=()) for _ in range(16)]
+        kwargs["priorityArray"] = [PriorityValue(null=()) for _ in range(16)]
         kwargs["relinquishDefault"] = value
         kwargs["currentCommandPriority"] = OptionalUnsigned(null=())
 

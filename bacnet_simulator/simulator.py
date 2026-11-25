@@ -43,8 +43,6 @@ class BacnetSimulator:
             maxApduLengthAccepted=1476,
             segmentationSupported="segmentedBoth",
         )
-        self.app = NormalApplication(self.device_object, IPv4Address(dev.bind_address))
-        broadcast = apply_broadcast_address(self.app, dev.bind_address, dev.broadcast_address)
         bind_address = IPv4Address(dev.bind_address)
         if self.config.bbmd.enabled:
             self.app = BBMDApplication(self.device_object, bind_address)
@@ -52,6 +50,7 @@ class BacnetSimulator:
                 self.app.add_peer(IPv4Address(peer))
         else:
             self.app = NormalApplication(self.device_object, bind_address)
+        broadcast = apply_broadcast_address(self.app, dev.bind_address, dev.broadcast_address)
         for obj_cfg in self.config.objects:
             obj = build_object(obj_cfg)
             self.app.add_object(obj)

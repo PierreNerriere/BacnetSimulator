@@ -4,9 +4,6 @@ import asyncio
 import socket
 import unittest
 
-from bacpypes3.ipv4.app import NormalApplication
-from bacpypes3.pdu import IPv4Address
-from bacpypes3.primitivedata import ObjectIdentifier
 from bacpypes3.ipv4.app import BBMDApplication, NormalApplication
 from bacpypes3.ipv4.bvll import (
     LPCI,
@@ -18,8 +15,9 @@ from bacpypes3.ipv4.bvll import (
     pdu_types,
 )
 from bacpypes3.pdu import IPv4Address, LocalBroadcast, PDU
+from bacpypes3.primitivedata import ObjectIdentifier
 
-from bacnet_simulator.client import _bvll_request, _client_device
+from bacnet_simulator.client import _bvll_request, _cast_write_value, _client_device
 from bacnet_simulator.config import parse_config
 from bacnet_simulator.network import detect_broadcast_address, parse_broadcast_address
 from bacnet_simulator.enums import cast_binary, cast_polarity
