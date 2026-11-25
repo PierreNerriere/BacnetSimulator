@@ -131,14 +131,10 @@ async def _run(args: argparse.Namespace) -> int:
     app = NormalApplication(_client_device(), IPv4Address(local_address))
     apply_broadcast_address(app, local_address, args.broadcast_address)
     target = IPv4Address(args.address)
-
-    if args.command in ("read-bdt", "read-fdt"):
-        return await _bbmd_command(args, target)
-
-    app = NormalApplication(
-        _client_device(), IPv4Address(args.local_address or "0.0.0.0:0")
-    )
     try:
+        if args.command in ("read-bdt", "read-fdt"):
+            return await _bbmd_command(args, target)
+
         if args.command == "who-is":
             address = None if args.broadcast else target
             i_ams = await app.who_is(address=address, timeout=args.timeout)
@@ -269,6 +265,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--unconfirmed",
         action="store_true",
         help="notifications non confirmees (defaut: confirmees)",
+    )
     sub.add_parser(
         "read-bdt", help="lire la BDT d'un BBMD (Read-Broadcast-Distribution-Table)"
     )

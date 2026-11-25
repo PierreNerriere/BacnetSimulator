@@ -7,9 +7,8 @@ import sys
 from typing import List, Optional
 
 from . import __version__
-from .config import SimulatorConfig, demo_config, load_config
-from .network import parse_broadcast_address
 from .config import SimulatorConfig, demo_config, load_config, parse_bbmd
+from .network import parse_broadcast_address
 from .simulator import BacnetSimulator
 
 
