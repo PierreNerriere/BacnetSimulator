@@ -8,6 +8,7 @@ Le simulateur héberge un objet `Device` et une liste d'objets BACnet (AI, AO, A
 - **ReadProperty** / **ReadPropertyMultiple**
 - **WriteProperty** / **WritePropertyMultiple** (les objets `*Value` et `*Output` sont écrivables, avec priorités pour les sorties)
 - **SubscribeCOV** : notifications COV (confirmees ou non) envoyees a chaque changement de `presentValue` (animation ou ecriture externe) ; une notification initiale est envoyee des la souscription.
+- **BBMD** (Annex J) en option : table de distribution de broadcast (BDT), table de devices étrangers (FDT) et transfert des broadcasts entre sous-réseaux
 
 ## Installation
 
@@ -46,6 +47,31 @@ poetry run bacnet-simulator --config examples/config.example.json
 
 Options : `--address 0.0.0.0:47808`, `--instance 1234`, `--name MonDevice`, `-v` (debug).
 
+### Exemple : liste de points de supervision (PTU)
+
+`examples/config.ptu.json` traduit une liste de points de supervision de régulateur PTU (défaut de communication, commande d'occupation, commandes et positions de stores, défauts d'éclairage et de modules) :
+
+```bash
+poetry run bacnet-simulator --config examples/config.ptu.json
+```
+
+| Composant | Objet | objectName |
+|---|---|---|
+| Communication | `binaryValue:50` | `Defaut_Com_PTU` |
+| CdeOccupation | `multiStateValue:201` | `OccupancyCmd` |
+| CdeStoresNord / Sud / Est / Ouest | `analogValue:201` à `204` | `BlindTranslationCmdNord/Sud/Est/Ouest` |
+| PosStoresOcc / PosStoresInocc | `analogValue:205` / `206` | `TranslationOcc` / `TranslationUnocc` |
+| E1, E2, S3, S4 | `binaryValue:51` à `54` | `Defaut_ECL1`, `Defaut_ECL2`, `Defaut_BLI1`, `Defaut_BLI2` |
+| U1, UCH1, SC1 | `binaryValue:41` | `Defaut_RC1` |
+| SC2, M3, M4, M5 | `binaryValue:42` à `45` | `Defaut_RC2` à `Defaut_RC5` |
+
+Notes :
+
+- Objets binaires (TA) : `inactive` = état 0 (Normal), `active` = état 1 (Défaut).
+- `multiStateValue:201` : états 1 à 4 = Occupé, Inoccupé, Bypass, Standby.
+- Les objets `analogValue` et `multiStateValue` (TR, L/E) sont écrivables depuis la supervision.
+- Les lignes « Suppression » de la liste source (SA2, M6) ne sont pas reprises ; les composants partageant le même point `binaryValue:41` (U1, UCH1, SC1) sont fusionnés en un seul objet, le simulateur interdisant les doublons type+instance.
+
 ### Format de la configuration JSON
 
 ```json
@@ -76,6 +102,7 @@ Options : `--address 0.0.0.0:47808`, `--instance 1234`, `--name MonDevice`, `-v`
 - `update_interval` : période (s) de recalcul des animations.
 - `objects` : liste des objets BACnet.
 - `cov_increment` (optionnel, objets analogiques uniquement) : variation minimale de `presentValue` declenchant une notification COV (`0.0` = notifier a chaque changement, defaut).
+- `bbmd` : section BBMD (voir ci-dessous) : `enabled` (booléen) et `peers` (liste d'adresses `ip:port` des autres BBMD, = BDT initiale).
 
 ### Types d'objets supportés
 
@@ -83,13 +110,69 @@ Options : `--address 0.0.0.0:47808`, `--instance 1234`, `--name MonDevice`, `-v`
 |---|---|---|
 | `analogInput` / `analogOutput` / `analogValue` | AV/AO oui | `value` (float), `units`, `cov_increment` |
 | `binaryInput` / `binaryOutput` / `binaryValue` | BV/BO oui | `value` (`active`/`inactive`), `polarity` |
+| `analogInput` / `analogOutput` / `analogValue` | AV/AO oui | `value` (float), `units` |
+| `binaryInput` / `binaryOutput` / `binaryValue` | BV/BO oui | `value` (voir énumérations ci-dessous), `polarity`, `active_text` / `inactive_text` |
 | `multiStateInput` / `multiStateOutput` / `multiStateValue` | MSV/MSO oui | `value` (1..N), `number_of_states`, `state_text` |
+
+### Énumérations
+
+Les valeurs énumérées acceptent les libellés canoniques BACnet **et** des alias français/anglais, en majuscules ou non :
+
+- **Binaire** (`presentValue` des BI/BO/BV, `value` en config, écriture client) : `active`/`inactive` ainsi que `actif`/`inactif`, `on`/`off`, `oui`/`non`, `marche`/`arret`, `true`/`false`, `1`/`0` (aussi booléens/nombres en config).
+- **Polarité** (`polarity` des BI/BO) : `normal`/`reverse`, alias `inverse`/`inversée`/`reversed`.
+
+Les objets binaires exposent de plus les libellés `activeText` / `inactiveText` (ex. `Actif` / `Inactif` par défaut), configurables via `active_text` / `inactive_text` :
+
+```json
+{
+  "type": "binaryValue",
+  "instance": 1,
+  "name": "BV-Pompe",
+  "value": "inactif",
+  "active_text": "Marche",
+  "inactive_text": "Arret"
+}
+```
 
 ### Animations (`animation`)
 
 - **Analogique** : `sine` (`amplitude`, `period`, `offset`), `ramp` (`start`, `stop`, `duration`, `loop`), `random` (`min`, `max`), `step` (`levels`, `duration`), ou `none`.
 - **Binaire** : `toggle` (`period`), ou `none`.
 - **Multi-états** : `cycle` (`period`), ou `none`.
+
+## Mode BBMD (Annex J)
+
+En mode **BBMD** (*BACnet Broadcast Management Device*), le simulateur joue le rôle d'un BBMD BACnet/IP :
+
+- il tient une **BDT** (*Broadcast Distribution Table*) : chaque broadcast reçu est retransmis à tous les peers de la BDT (et à la FDT) sous forme de `Forwarded-NPDU` ;
+- il tient une **FDT** (*Foreign Device Table*) : les devices des autres sous-réseaux s'y enregistrent avec *Register-Foreign-Device* et reçoivent alors les broadcasts transferés ;
+- il répond aux fonctions BVLL *Read/Write-Broadcast-Distribution-Table* et *Read/Delete-Foreign-Device-Table*.
+
+La BDT initiale se définit dans la configuration :
+
+```json
+"bbmd": {
+  "enabled": true,
+  "peers": ["0.0.0.0:47808", "10.0.1.2:47808"]
+}
+```
+
+(voir `examples/config.bbmd.example.json`). Par convention, la BDT contient le BBMD lui-même (`0.0.0.0:47808` ici = adresse locale).
+
+En ligne de commande (sans fichier de config) :
+
+```bash
+poetry run bacnet-simulator --bbmd --bbmd-peer 10.0.1.2:47808 --bbmd-peer 10.0.2.2:47808
+```
+
+`--bbmd` active le mode avec les peers du fichier de config ; `--bbmd-peer IP:PORT` (répétable) active le mode et remplace la BDT par les peers donnés.
+
+Pour inspecter un BBMD depuis le client :
+
+```bash
+poetry run bacnet-simulator-client --address <bbmd:47808> read-bdt
+poetry run bacnet-simulator-client --address <bbmd:47808> read-fdt
+```
 
 ## Client de test
 
@@ -99,6 +182,10 @@ poetry run bacnet-simulator-client --address <ip:port> list [--device device:123
 poetry run bacnet-simulator-client --address <ip:port> read analogValue:1 presentValue [--index N]
 poetry run bacnet-simulator-client --address <ip:port> write analogValue:1 presentValue 42.5 [--priority 8]
 poetry run bacnet-simulator-client --address <ip:port> subscribe analogValue:1 --count 3 [--unconfirmed] [--lifetime 60]
+poetry run bacnet-simulator-client --address <ip:port> write binaryValue:1 presentValue actif
+poetry run bacnet-simulator-client --address <ip:port> read binaryValue:1 activeText
+poetry run bacnet-simulator-client --address <bbmd:port> read-bdt   # BDT du BBMD
+poetry run bacnet-simulator-client --address <bbmd:port> read-fdt   # FDT du BBMD
 ```
 
 La commande `subscribe` affiche les notifications COV recues (valeur initiale immediate, puis a chaque changement) puis annule la souscription en sortant.

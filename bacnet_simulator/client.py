@@ -5,6 +5,7 @@ Exemples:
     python -m bacnet_simulator.client --address 127.0.0.1:47808 read analogValue:1 presentValue
     python -m bacnet_simulator.client --address 127.0.0.1:47808 write analogValue:1 presentValue 42.5
     python -m bacnet_simulator.client --address 127.0.0.1:47808 subscribe analogValue:1 --count 3
+    python -m bacnet_simulator.client --address 127.0.0.1:47808 write binaryValue:1 presentValue actif
     python -m bacnet_simulator.client --address 127.0.0.1:47808 who-is
 """
 
@@ -15,9 +16,19 @@ import sys
 from typing import Any, List, Optional
 
 from bacpypes3.ipv4.app import NormalApplication
+from bacpypes3.ipv4.bvll import (
+    LPCI,
+    LPDU,
+    ReadBroadcastDistributionTable,
+    ReadForeignDeviceTable,
+    Result,
+    pdu_types,
+)
 from bacpypes3.local.device import DeviceObject
-from bacpypes3.pdu import IPv4Address
+from bacpypes3.pdu import IPv4Address, PDU
 from bacpypes3.primitivedata import ObjectIdentifier
+
+from .enums import cast_binary, cast_polarity
 
 
 def _client_device() -> DeviceObject:
@@ -35,10 +46,24 @@ def _client_device() -> DeviceObject:
     )
 
 
-def _cast_write_value(raw: str) -> Any:
+def _obj_type(objid: str) -> str:
+    return objid.split(":", 1)[0].strip()
+
+
+def _cast_write_value(raw: str, obj_type: str = "", prop: str = "") -> Any:
+    """Convertit la valeur saisie en ligne de commande selon le type d'objet."""
+    if prop == "polarity":
+        return cast_polarity(raw)
+    if obj_type.startswith("binary"):
+        return cast_binary(raw)
+    if obj_type.startswith("multiState"):
+        try:
+            return int(raw)
+        except ValueError:
+            raise ValueError(
+                f"valeur multi-etats invalide: {raw!r} (entier 1..N attendu)"
+            ) from None
     low = raw.strip().lower()
-    if low in ("active", "inactive"):
-        return low
     if low in ("true", "false"):
         return low == "true"
     try:
@@ -52,13 +77,64 @@ def _cast_write_value(raw: str) -> Any:
     return raw
 
 
+async def _bvll_request(target: IPv4Address, request_lpdu: LPDU, timeout: float) -> LPDU:
+    """Envoie une BVLL (Annex J) a un BBMD sur un socket UDP jetable et decode la reponse."""
+    loop = asyncio.get_running_loop()
+    received: asyncio.Future = loop.create_future()
+
+    class _Proto(asyncio.DatagramProtocol):
+        def datagram_received(self, data: bytes, addr) -> None:
+            if not received.done():
+                received.set_result(data)
+
+    transport, _ = await loop.create_datagram_endpoint(_Proto, local_addr=("0.0.0.0", 0))
+    try:
+        transport.sendto(request_lpdu.encode().pduData, target.addrTuple)
+        data = await asyncio.wait_for(received, timeout)
+    finally:
+        transport.close()
+    resp = PDU(data)
+    lpci = LPCI.decode(resp)
+    lpdu_class = pdu_types.get(lpci.bvlciFunction)
+    if lpdu_class is None:
+        raise ValueError(f"fonction BVLL inconnue: {lpci.bvlciFunction:#04x}")
+    lpdu = lpdu_class.decode(resp)
+    LPCI.update(lpdu, lpci)
+    return lpdu
+
+
+async def _bbmd_command(args: argparse.Namespace, target: IPv4Address) -> int:
+    if args.command == "read-bdt":
+        ack = await _bvll_request(target, ReadBroadcastDistributionTable(), args.timeout)
+        if isinstance(ack, Result):
+            print(f"erreur du BBMD: {ack.bvlciResultCode:#06x}")
+            return 1
+        print(f"{len(ack.bvlciBDT)} entree(s) dans la BDT de {args.address}:")
+        for entry in ack.bvlciBDT:
+            print(f"  {entry}")
+        return 0
+    if args.command == "read-fdt":
+        ack = await _bvll_request(target, ReadForeignDeviceTable(), args.timeout)
+        if isinstance(ack, Result):
+            print(f"erreur du BBMD: {ack.bvlciResultCode:#06x}")
+            return 1
+        print(f"{len(ack.bvlciFDT)} entree(s) dans la FDT de {args.address}:")
+        for entry in ack.bvlciFDT:
+            print(f"  {entry.fdAddress} (ttl={entry.fdTTL}, restant={entry.fdRemain})")
+        return 0
+    raise ValueError(f"commande inconnue: {args.command!r}")
+
+
 async def _run(args: argparse.Namespace) -> int:
+    target = IPv4Address(args.address)
+
+    if args.command in ("read-bdt", "read-fdt"):
+        return await _bbmd_command(args, target)
+
     app = NormalApplication(
         _client_device(), IPv4Address(args.local_address or "0.0.0.0:0")
     )
     try:
-        target = IPv4Address(args.address)
-
         if args.command == "who-is":
             address = None if args.broadcast else target
             i_ams = await app.who_is(address=address, timeout=args.timeout)
@@ -84,7 +160,7 @@ async def _run(args: argparse.Namespace) -> int:
                 target,
                 args.objid,
                 args.prop,
-                _cast_write_value(args.value),
+                _cast_write_value(args.value, _obj_type(args.objid), args.prop),
                 array_index=args.index,
                 priority=args.priority,
             )
@@ -151,7 +227,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_write = sub.add_parser("write", help="ecrire une propriete")
     p_write.add_argument("objid", help="ex. analogValue:1")
     p_write.add_argument("prop", help="ex. presentValue")
-    p_write.add_argument("value", help="ex. 42.5 ou active")
+    p_write.add_argument("value", help="ex. 42.5, actif/inactif (BV), 2 (MSV)")
     p_write.add_argument("--index", type=int, default=None, help="index de tableau")
     p_write.add_argument("--priority", type=int, default=None, help="priorite 1-16")
 
@@ -183,6 +259,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--unconfirmed",
         action="store_true",
         help="notifications non confirmees (defaut: confirmees)",
+    sub.add_parser(
+        "read-bdt", help="lire la BDT d'un BBMD (Read-Broadcast-Distribution-Table)"
+    )
+    sub.add_parser(
+        "read-fdt", help="lire la FDT d'un BBMD (Read-Foreign-Device-Table)"
     )
     return parser
 
@@ -193,6 +274,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         return asyncio.run(_run(args))
     except KeyboardInterrupt:
         return 130
+    except ValueError as err:
+        print(f"erreur: {err}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":
