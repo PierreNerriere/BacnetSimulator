@@ -6,25 +6,33 @@ from bacpypes3.basetypes import (
     BinaryPV,
     EngineeringUnits,
     EventState,
+    OptionalUnsigned,
     Polarity,
+    PriorityValue,
     StatusFlags,
 )
-from bacpypes3.object import (
+from bacpypes3.local.analog import (
     AnalogInputObject,
     AnalogOutputObject,
     AnalogValueObject,
+)
+from bacpypes3.local.binary import (
     BinaryInputObject,
     BinaryOutputObject,
     BinaryValueObject,
+)
+from bacpypes3.local.cov import COVIncrementCriteria, GenericCriteria
+from bacpypes3.local.multistate import (
     MultiStateInputObject,
     MultiStateOutputObject,
     MultiStateValueObject,
-    Object,
 )
+from bacpypes3.object import Object
 from bacpypes3.primitivedata import ObjectIdentifier
 
-from .animations import animation_kind, cast_binary
+from .animations import animation_kind
 from .config import ObjectConfig
+from .enums import BINARY_ACTIVE_TEXT, BINARY_INACTIVE_TEXT, cast_binary, cast_polarity
 
 _OBJECT_CLASSES: Dict[str, type] = {
     "analogInput": AnalogInputObject,
@@ -39,6 +47,20 @@ _OBJECT_CLASSES: Dict[str, type] = {
 }
 
 _OUTPUT_TYPES = {"analogOutput", "binaryOutput", "multiStateOutput"}
+
+# criteres de detection COV par type d'objet (comme criteria_type_map de bacpypes3) :
+# les objets analogiques utilisent le critere a increment, les autres le critere generique
+_COV_CRITERIA: Dict[str, type] = {
+    "analogInput": COVIncrementCriteria,
+    "analogOutput": COVIncrementCriteria,
+    "analogValue": COVIncrementCriteria,
+    "binaryInput": GenericCriteria,
+    "binaryOutput": GenericCriteria,
+    "binaryValue": GenericCriteria,
+    "multiStateInput": GenericCriteria,
+    "multiStateOutput": GenericCriteria,
+    "multiStateValue": GenericCriteria,
+}
 
 
 def is_writable(obj_type: str) -> bool:
@@ -87,18 +109,25 @@ def build_object(cfg: ObjectConfig) -> Object:
     if kind == "analog":
         kwargs["presentValue"] = value
         kwargs["units"] = EngineeringUnits(cfg.units or "noUnits")
+        kwargs["covIncrement"] = (
+            float(cfg.cov_increment) if cfg.cov_increment is not None else 0.0
+        )
     elif kind == "binary":
         kwargs["presentValue"] = value
+        kwargs["activeText"] = cfg.active_text or BINARY_ACTIVE_TEXT
+        kwargs["inactiveText"] = cfg.inactive_text or BINARY_INACTIVE_TEXT
         if cfg.type in ("binaryInput", "binaryOutput"):
-            kwargs["polarity"] = Polarity(cfg.polarity)
+            kwargs["polarity"] = Polarity(cast_polarity(cfg.polarity))
     else:
         kwargs["presentValue"] = value
         kwargs["numberOfStates"] = cfg.number_of_states or 2
         kwargs["stateText"] = _state_text(cfg)
 
     if cfg.type in _OUTPUT_TYPES:
-        kwargs["priorityArray"] = [None] * 16
+        kwargs["priorityArray"] = [PriorityValue(null=()) for _ in range(16)]
         kwargs["relinquishDefault"] = value
-        kwargs["currentCommandPriority"] = None
+        kwargs["currentCommandPriority"] = OptionalUnsigned(null=())
 
-    return cls(**kwargs)
+    obj = cls(**kwargs)
+    obj._cov_criteria = _COV_CRITERIA[cfg.type]
+    return obj

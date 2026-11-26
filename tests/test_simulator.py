@@ -4,12 +4,33 @@ import asyncio
 import socket
 import unittest
 
-from bacpypes3.ipv4.app import NormalApplication
-from bacpypes3.pdu import IPv4Address
+from bacpypes3.ipv4.app import BBMDApplication, NormalApplication
+from bacpypes3.ipv4.bvll import (
+    LPCI,
+    ForwardedNPDU,
+    ReadBroadcastDistributionTable,
+    ReadForeignDeviceTable,
+    RegisterForeignDevice,
+    Result,
+    pdu_types,
+)
+from bacpypes3.pdu import IPv4Address, LocalBroadcast, PDU
+from bacpypes3.primitivedata import ObjectIdentifier
 
-from bacnet_simulator.client import _client_device
+from bacnet_simulator.client import _bvll_request, _cast_write_value, _client_device
 from bacnet_simulator.config import parse_config
+from bacnet_simulator.network import detect_broadcast_address, parse_broadcast_address
+from bacnet_simulator.enums import cast_binary, cast_polarity
+from bacnet_simulator.objects import build_object
 from bacnet_simulator.simulator import BacnetSimulator
+
+
+async def _next_present_value(scm, timeout: float = 2.0):
+    """Lit les notifications COV jusqu'a trouver presentValue."""
+    while True:
+        prop_id, value = await asyncio.wait_for(scm.get_value(), timeout=timeout)
+        if prop_id.attr == "presentValue":
+            return value
 
 
 def _free_port() -> int:
@@ -18,6 +39,29 @@ def _free_port() -> int:
     port = sock.getsockname()[1]
     sock.close()
     return port
+
+
+def _decode_bvll(data: bytes):
+    resp = PDU(data)
+    lpci = LPCI.decode(resp)
+    lpdu_class = pdu_types[lpci.bvlciFunction]
+    lpdu = lpdu_class.decode(resp)
+    LPCI.update(lpdu, lpci)
+    return lpdu
+
+
+async def _make_udp_endpoint(port: int):
+    loop = asyncio.get_running_loop()
+    queue: asyncio.Queue = asyncio.Queue()
+
+    class Proto(asyncio.DatagramProtocol):
+        def datagram_received(self, data, addr) -> None:
+            queue.put_nowait(data)
+
+    transport, _ = await loop.create_datagram_endpoint(
+        Proto, local_addr=("127.0.0.1", port)
+    )
+    return transport, queue
 
 
 def _test_config(server_port: int) -> dict:
@@ -48,7 +92,9 @@ def _test_config(server_port: int) -> dict:
                 "type": "binaryValue",
                 "instance": 1,
                 "name": "BV-OnOff",
-                "value": "inactive",
+                "value": "inactif",
+                "active_text": "Actif",
+                "inactive_text": "Inactif",
             },
             {
                 "type": "multiStateValue",
@@ -57,6 +103,20 @@ def _test_config(server_port: int) -> dict:
                 "value": 2,
                 "number_of_states": 3,
                 "state_text": ["Off", "Auto", "Manual"],
+            },
+            {
+                "type": "analogOutput",
+                "instance": 1,
+                "name": "AO-Valve",
+                "value": 30.0,
+                "units": "percent",
+            },
+            {
+                "type": "multiStateOutput",
+                "instance": 1,
+                "name": "MSO-Mode",
+                "value": 1,
+                "number_of_states": 3,
             },
         ],
     }
@@ -102,11 +162,40 @@ class SimulatorIntegrationTest(unittest.IsolatedAsyncioTestCase):
         value = await self.client.read_property(self.target, "binaryValue:1", "presentValue")
         self.assertEqual(str(value), "active")
 
+    async def test_write_binary_value_french_alias(self) -> None:
+        await self.client.write_property(
+            self.target,
+            "binaryValue:1",
+            "presentValue",
+            _cast_write_value("Actif", "binaryValue", "presentValue"),
+        )
+        value = await self.client.read_property(self.target, "binaryValue:1", "presentValue")
+        self.assertEqual(str(value), "active")
+
+    async def test_binary_active_inactive_text(self) -> None:
+        active = await self.client.read_property(self.target, "binaryValue:1", "activeText")
+        inactive = await self.client.read_property(self.target, "binaryValue:1", "inactiveText")
+        self.assertEqual(str(active), "Actif")
+        self.assertEqual(str(inactive), "Inactif")
+
     async def test_read_multistate(self) -> None:
         value = await self.client.read_property(self.target, "multiStateValue:1", "presentValue")
         self.assertEqual(int(value), 2)
         text = await self.client.read_property(self.target, "multiStateValue:1", "stateText", 3)
         self.assertEqual(str(text), "Manual")
+
+    async def test_read_output_priority_array(self) -> None:
+        priority_array = await self.client.read_property(
+            self.target, "analogOutput:1", "priorityArray"
+        )
+        self.assertEqual(len(priority_array), 16)
+        await self.client.read_property(
+            self.target, "analogOutput:1", "currentCommandPriority"
+        )
+        mso_priority_array = await self.client.read_property(
+            self.target, "multiStateOutput:1", "priorityArray"
+        )
+        self.assertEqual(len(mso_priority_array), 16)
 
     async def test_object_list(self) -> None:
         obj_list = await self.client.read_property(self.target, "device:5678", "objectList")
@@ -122,12 +211,72 @@ class SimulatorIntegrationTest(unittest.IsolatedAsyncioTestCase):
         instances = [int(i_am.iAmDeviceIdentifier[1]) for i_am in i_ams]
         self.assertIn(5678, instances)
 
+    async def test_loopback_bind_keeps_broadcast_unset(self) -> None:
+        self.assertIsNone(self.sim.app.normal.server.broadcast_address)
+
     async def test_animation_changes_value(self) -> None:
         await asyncio.sleep(0.45)
         value = await self.client.read_property(
             self.target, "analogValue:2", "presentValue"
         )
         self.assertGreater(abs(float(value) - 20.0), 0.01)
+
+    async def test_objects_support_cov(self) -> None:
+        for _obj_cfg, obj in self.sim.objects:
+            self.assertIsNotNone(getattr(obj, "_cov_criteria", None))
+
+    async def test_cov_subscription_initial_notification(self) -> None:
+        async with self.client.change_of_value(
+            self.target, ObjectIdentifier("analogValue:1"), lifetime=60
+        ) as scm:
+            value = await _next_present_value(scm)
+            self.assertAlmostEqual(float(value), 10.0)
+
+    async def test_cov_subscription_on_animation(self) -> None:
+        async with self.client.change_of_value(
+            self.target,
+            ObjectIdentifier("analogValue:2"),
+            issue_confirmed_notifications=False,
+            lifetime=60,
+        ) as scm:
+            values = [
+                float(await _next_present_value(scm, timeout=3.0)) for _ in range(4)
+            ]
+            self.assertGreater(len(set(values)), 1)
+
+    async def test_cov_subscription_on_write_binary(self) -> None:
+        async with self.client.change_of_value(
+            self.target,
+            ObjectIdentifier("binaryValue:1"),
+            issue_confirmed_notifications=False,
+            lifetime=60,
+        ) as scm:
+            await _next_present_value(scm)
+            await self.client.write_property(
+                self.target, "binaryValue:1", "presentValue", "active"
+            )
+            value = await _next_present_value(scm)
+            self.assertEqual(str(value), "active")
+
+    async def test_cov_unsubscribe_stops_notifications(self) -> None:
+        scm = self.client.change_of_value(
+            self.target,
+            ObjectIdentifier("analogValue:1"),
+            issue_confirmed_notifications=False,
+            lifetime=60,
+        )
+        async with scm:
+            await _next_present_value(scm)
+        while not scm.queue.empty():
+            scm.queue.get_nowait()
+        await self.client.write_property(
+            self.target, "analogValue:1", "presentValue", 55.5
+        )
+        await asyncio.sleep(0.4)
+        self.assertTrue(scm.queue.empty())
+    async def test_normal_mode_is_not_bbmd(self) -> None:
+        self.assertIsInstance(self.sim.app, NormalApplication)
+        self.assertFalse(hasattr(self.sim.app, "bbmd"))
 
 
 class ConfigValidationTest(unittest.TestCase):
@@ -176,6 +325,145 @@ class ConfigValidationTest(unittest.TestCase):
 
         cfg = demo_config()
         self.assertEqual(len(cfg.objects), 4)
+
+    def test_cov_increment_accepted_for_analog(self) -> None:
+        cfg = parse_config(
+            {
+                "objects": [
+                    {
+                        "type": "analogValue",
+                        "instance": 1,
+                        "name": "a",
+                        "cov_increment": 0.5,
+                    }
+                ]
+            }
+        )
+        self.assertEqual(cfg.objects[0].cov_increment, 0.5)
+
+    def test_cov_increment_rejected_when_negative(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_config(
+                {
+                    "objects": [
+                        {
+                            "type": "analogValue",
+                            "instance": 1,
+                            "name": "a",
+                            "cov_increment": -1.0,
+                        }
+                    ]
+                }
+            )
+
+    def test_cov_increment_rejected_for_non_analog(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_config(
+                {
+                    "objects": [
+                        {
+                            "type": "binaryValue",
+                            "instance": 1,
+                            "name": "b",
+                            "cov_increment": 1.0,
+                        }
+                    ]
+                }
+            )
+    def test_broadcast_address_accepted(self) -> None:
+        cfg = parse_config({"device": {"broadcast_address": "192.168.1.255:47808"}})
+        self.assertEqual(cfg.device.broadcast_address, "192.168.1.255:47808")
+
+    def test_broadcast_address_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_config({"device": {"broadcast_address": "pas-une-ip"}})
+
+
+class BroadcastAddressHelperTest(unittest.TestCase):
+    def test_parse_with_default_port(self) -> None:
+        self.assertEqual(
+            parse_broadcast_address("192.168.1.255", 47808), ("192.168.1.255", 47808)
+        )
+
+    def test_parse_with_explicit_port(self) -> None:
+        self.assertEqual(
+            parse_broadcast_address("192.168.1.255:47809", 47808), ("192.168.1.255", 47809)
+        )
+
+    def test_parse_invalid_ip_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_broadcast_address("999.1.1.1", 47808)
+
+    def test_parse_invalid_port_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_broadcast_address("10.0.0.255:99999", 47808)
+
+    def test_detect_masked_bind(self) -> None:
+        self.assertEqual(
+            detect_broadcast_address(IPv4Address("10.1.2.3/24:47808")), ("10.1.2.255", 47808)
+        )
+
+    def test_detect_loopback_is_none(self) -> None:
+        self.assertIsNone(detect_broadcast_address(IPv4Address("127.0.0.1:5000")))
+
+    def test_detect_wildcard_bind(self) -> None:
+        result = detect_broadcast_address(IPv4Address("0.0.0.0:47808"))
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertEqual(result[1], 47808)
+        self.assertNotEqual(result[0], "0.0.0.0")
+
+
+class BroadcastIntegrationTest(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self) -> None:
+        self.server_port = _free_port()
+        cfg = parse_config(_test_config(self.server_port))
+        cfg.device.bind_address = f"0.0.0.0:{self.server_port}"
+        cfg.device.broadcast_address = f"127.255.255.255:{self.server_port}"
+        self.sim = BacnetSimulator(cfg)
+        await self.sim.start()
+        self.client_port = _free_port()
+        self.client = NormalApplication(
+            _client_device(), IPv4Address(f"127.0.0.1:{self.client_port}")
+        )
+        await asyncio.sleep(0.1)
+
+    async def asyncTearDown(self) -> None:
+        self.client.close()
+        await self.sim.stop()
+
+    async def test_broadcast_address_applied_and_sendable(self) -> None:
+        server = self.sim.app.normal.server
+        self.assertEqual(server.broadcast_address, ("127.255.255.255", self.server_port))
+        await server.indication(
+            PDU(
+                b"\x81\x0b\x00\x04",
+                source=IPv4Address("127.0.0.1:47808"),
+                destination=LocalBroadcast(),
+            )
+        )
+
+    async def test_who_is_broadcast(self) -> None:
+        self.client.normal.server.broadcast_address = (
+            "127.255.255.255",
+            self.server_port,
+        )
+        i_ams = await self.client.who_is(address=None, timeout=2)
+        instances = [int(i_am.iAmDeviceIdentifier[1]) for i_am in i_ams]
+        self.assertIn(5678, instances)
+    def test_example_configs_are_valid(self) -> None:
+        from pathlib import Path
+
+        from bacnet_simulator.config import load_config
+        from bacnet_simulator.objects import build_object
+
+        examples_dir = Path(__file__).resolve().parent.parent / "examples"
+        paths = sorted(examples_dir.glob("*.json"))
+        self.assertGreaterEqual(len(paths), 2)
+        for path in paths:
+            cfg = load_config(path)
+            for obj in cfg.objects:
+                build_object(obj)
 
 
 if __name__ == "__main__":

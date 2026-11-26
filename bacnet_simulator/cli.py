@@ -7,7 +7,8 @@ import sys
 from typing import List, Optional
 
 from . import __version__
-from .config import SimulatorConfig, demo_config, load_config
+from .config import SimulatorConfig, demo_config, load_config, parse_bbmd
+from .network import parse_broadcast_address
 from .simulator import BacnetSimulator
 
 
@@ -25,6 +26,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--address",
         help="adresse UDP d'ecoute, ex. 0.0.0.0:47808 (defaut: 0.0.0.0:47808)",
     )
+    parser.add_argument(
+        "--broadcast-address",
+        help="adresse de broadcast IPv4, ex. 192.168.1.255 ou 255.255.255.255[:47808] "
+        "(detectee automatiquement si absente)",
+    )
     parser.add_argument("--instance", type=int, help="numero d'instance du device")
     parser.add_argument("--name", help="nom (objectName) du device")
     parser.add_argument(
@@ -36,6 +42,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--web-address",
         default="127.0.0.1:8080",
         help="adresse d'ecoute de l'interface web (defaut: 127.0.0.1:8080)",
+        "--bbmd",
+        action="store_true",
+        help="activer le mode BBMD (Annex J: BDT/FDT, transfert des broadcasts)",
+    )
+    parser.add_argument(
+        "--bbmd-peer",
+        action="append",
+        default=[],
+        metavar="IP:PORT",
+        help="peer BBMD a ajouter a la BDT, ex. 10.0.0.2:47808 (option repetable)",
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="logs de debug bacpypes3"
@@ -60,10 +76,25 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.address:
         config.device.bind_address = args.address
+    if args.broadcast_address:
+        try:
+            parse_broadcast_address(args.broadcast_address, 47808)
+        except ValueError as err:
+            log.error("--broadcast-address invalide: %s", err)
+            return 2
+        config.device.broadcast_address = args.broadcast_address
     if args.instance is not None:
         config.device.instance = args.instance
     if args.name:
         config.device.name = args.name
+    if args.bbmd_peer:
+        try:
+            config.bbmd = parse_bbmd({"enabled": True, "peers": args.bbmd_peer})
+        except ValueError as err:
+            log.error("configuration invalide: %s", err)
+            return 2
+    elif args.bbmd:
+        config.bbmd.enabled = True
 
     simulator = BacnetSimulator(
         config, web_address=args.web_address if args.web else None
