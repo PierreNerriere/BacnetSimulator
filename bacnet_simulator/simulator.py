@@ -1,8 +1,10 @@
 """Coeur du simulateur: application BACnet/IP + boucle d'animation."""
 
 import asyncio
+import concurrent.futures
 import logging
 import time
+from typing import Any, Dict, List, Optional, Tuple
 from typing import List, Optional, Tuple, Union
 
 from bacpypes3.ipv4.app import BBMDApplication, NormalApplication
@@ -13,6 +15,8 @@ from bacpypes3.primitivedata import ObjectIdentifier
 
 from .animations import animate, animation_kind, cast_value
 from .config import SimulatorConfig
+from .objects import build_object, is_writable
+from .webui import WebUI
 from .network import apply_broadcast_address
 from .objects import build_object
 
@@ -22,13 +26,18 @@ _log = logging.getLogger("bacnet_simulator")
 class BacnetSimulator:
     """Un device BACnet/IP qui heberge des objets animes."""
 
-    def __init__(self, config: SimulatorConfig) -> None:
+    def __init__(
+        self, config: SimulatorConfig, web_address: Optional[str] = None
+    ) -> None:
         self.config = config
         self.app: Optional[Union[NormalApplication, BBMDApplication]] = None
         self.device_object: Optional[DeviceObject] = None
         self.objects: List[Tuple[object, Object]] = []
         self._update_task: Optional[asyncio.Task] = None
         self._start_time: float = 0.0
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._web_address = web_address
+        self._web: Optional[WebUI] = None
 
     async def start(self) -> None:
         dev = self.config.device
@@ -56,7 +65,12 @@ class BacnetSimulator:
             self.app.add_object(obj)
             self.objects.append((obj_cfg, obj))
         self._start_time = time.monotonic()
+        self._loop = asyncio.get_running_loop()
         self._update_task = asyncio.create_task(self._update_loop())
+        if self._web_address:
+            host, _, port = self._web_address.rpartition(":")
+            self._web = WebUI(self, host or "127.0.0.1", int(port))
+            self._web.start()
         _log.info(
             "device %s (instance %d) en ecoute sur %s avec %d objet(s)",
             dev.name,
@@ -96,7 +110,98 @@ class BacnetSimulator:
             )
             obj.presentValue = cast_value(kind, value)
 
+    @property
+    def web_port(self) -> Optional[int]:
+        """Port HTTP reel de l'interface web (None si desactivee)."""
+        return self._web.address[1] if self._web is not None else None
+
+    def _describe(self, obj_cfg: Any, obj: Object) -> Dict[str, Any]:
+        kind = animation_kind(obj_cfg.type)
+        present = obj.presentValue
+        if kind == "analog":
+            value: Any = float(present)
+        elif kind == "binary":
+            value = str(present)
+        else:
+            value = int(present)
+        return {
+            "id": f"{obj_cfg.type}:{obj_cfg.instance}",
+            "type": obj_cfg.type,
+            "instance": obj_cfg.instance,
+            "name": obj_cfg.name,
+            "description": obj_cfg.description,
+            "kind": kind,
+            "value": value,
+            "units": obj_cfg.units,
+            "writable": is_writable(obj_cfg.type),
+            "animation": (obj_cfg.animation or {}).get("type", "none"),
+            "number_of_states": obj_cfg.number_of_states,
+            "state_text": obj_cfg.state_text,
+        }
+
+    def describe_objects(self) -> List[Dict[str, Any]]:
+        """Description JSON de tous les objets et de leur valeur courante."""
+        return [self._describe(obj_cfg, obj) for obj_cfg, obj in self.objects]
+
+    def describe(self) -> Dict[str, Any]:
+        dev = self.config.device
+        return {
+            "device": {"name": dev.name, "instance": dev.instance},
+            "objects": self.describe_objects(),
+        }
+
+    def set_value(self, obj_id: str, value: Any) -> Dict[str, Any]:
+        """Modifie la valeur d'un objet (appelable depuis n'importe quel thread)."""
+        try:
+            running = asyncio.get_running_loop()
+        except RuntimeError:
+            running = None
+        if self._loop is not None and running is not self._loop:
+            future: concurrent.futures.Future = concurrent.futures.Future()
+
+            def _apply() -> None:
+                try:
+                    future.set_result(self._set_value_sync(obj_id, value))
+                except Exception as exc:
+                    future.set_exception(exc)
+
+            self._loop.call_soon_threadsafe(_apply)
+            return future.result(timeout=5.0)
+        return self._set_value_sync(obj_id, value)
+
+    def _set_value_sync(self, obj_id: str, value: Any) -> Dict[str, Any]:
+        obj_type, _, raw_instance = obj_id.partition(":")
+        try:
+            instance = int(raw_instance)
+        except ValueError:
+            raise ValueError(
+                f"identifiant d'objet invalide: {obj_id!r} (attendu: 'type:instance')"
+            )
+        if value is None:
+            raise ValueError("'value' est requis")
+        for obj_cfg, obj in self.objects:
+            if obj_cfg.type == obj_type and obj_cfg.instance == instance:
+                break
+        else:
+            raise KeyError(obj_id)
+        if not is_writable(obj_type):
+            raise ValueError(
+                f"l'objet {obj_id} n'est pas ecrivable "
+                "(seuls les *Value et *Output le sont)"
+            )
+        kind = animation_kind(obj_type)
+        if kind == "multistate":
+            states = obj_cfg.number_of_states or 1
+            obj.presentValue = max(1, min(states, int(value)))
+        else:
+            obj.presentValue = cast_value(kind, value)
+        obj_cfg.animation = None
+        return self._describe(obj_cfg, obj)
+
     async def stop(self) -> None:
+        if self._web is not None:
+            await asyncio.to_thread(self._web.stop)
+            self._web = None
         if self._update_task is not None:
             self._update_task.cancel()
             try:

@@ -63,6 +63,11 @@ _COV_CRITERIA: Dict[str, type] = {
 }
 
 
+def is_writable(obj_type: str) -> bool:
+    """Seuls les objets *Value et *Output sont ecrivables depuis l'exterieur."""
+    return obj_type.endswith(("Value", "Output"))
+
+
 def _common_kwargs(cfg: ObjectConfig) -> Dict[str, Any]:
     kwargs: Dict[str, Any] = {
         "objectIdentifier": ObjectIdentifier((cfg.type, cfg.instance)),

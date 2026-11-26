@@ -34,6 +34,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--instance", type=int, help="numero d'instance du device")
     parser.add_argument("--name", help="nom (objectName) du device")
     parser.add_argument(
+        "--web",
+        action="store_true",
+        help="active l'interface web pour modifier les valeurs des objets",
+    )
+    parser.add_argument(
+        "--web-address",
+        default="127.0.0.1:8080",
+        help="adresse d'ecoute de l'interface web (defaut: 127.0.0.1:8080)",
         "--bbmd",
         action="store_true",
         help="activer le mode BBMD (Annex J: BDT/FDT, transfert des broadcasts)",
@@ -88,7 +96,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     elif args.bbmd:
         config.bbmd.enabled = True
 
-    simulator = BacnetSimulator(config)
+    simulator = BacnetSimulator(
+        config, web_address=args.web_address if args.web else None
+    )
     try:
         asyncio.run(simulator.run_forever())
     except KeyboardInterrupt:
