@@ -42,6 +42,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--web-address",
         default="127.0.0.1:8080",
         help="adresse d'ecoute de l'interface web (defaut: 127.0.0.1:8080)",
+    )
+    parser.add_argument(
         "--bbmd",
         action="store_true",
         help="activer le mode BBMD (Annex J: BDT/FDT, transfert des broadcasts)",
