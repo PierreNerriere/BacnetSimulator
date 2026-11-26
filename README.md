@@ -43,7 +43,44 @@ poetry run bacnet-simulator-client --address 127.0.0.1:47808 who-is
 poetry run bacnet-simulator --config examples/config.example.json
 ```
 
-Options : `--address 0.0.0.0:47808`, `--instance 1234`, `--name MonDevice`, `-v` (debug).
+Options : `--address 0.0.0.0:47808`, `--instance 1234`, `--name MonDevice`, `--web` / `--web-address 127.0.0.1:8080`, `-v` (debug).
+
+## Interface web
+
+L'option `--web` lance en plus une **interface web** pour visualiser et modifier les valeurs des objets (bibliothèque standard uniquement, aucune dépendance supplémentaire) :
+
+```bash
+poetry run bacnet-simulator --web                       # http://127.0.0.1:8080
+poetry run bacnet-simulator --config examples/config.example.json --web --web-address 127.0.0.1:8080
+```
+
+- Par défaut l'interface n'écoute que sur **loopback** (`127.0.0.1:8080`) ; `--web-address 0.0.0.0:8080` l'expose sur le réseau (pensez au pare-feu).
+- La page `GET /` liste les objets avec leur valeur courante (rafraîchie toutes les 2 s) et un formulaire par objet `*Value` / `*Output` (les `*Input` sont en lecture seule, comme en BACnet).
+- **Modifier une valeur depuis la page désactive l'animation** de l'objet concerné, pour que la valeur saisie soit conservée (visible aussi via `ReadProperty`).
+
+API JSON :
+
+| Endpoint | Description |
+|---|---|
+| `GET /api/objects` | liste JSON des objets (id, nom, type, valeur, unités, animation, `writable`) |
+| `POST /api/set` | body `{"id": "analogValue:1", "value": 42.5}` → modifie la valeur, réponse `{"object": {...}}` |
+
+Exemple :
+
+```bash
+python3 - <<'EOF'
+import json, urllib.request
+req = urllib.request.Request(
+    "http://127.0.0.1:8080/api/set",
+    data=json.dumps({"id": "analogValue:1", "value": 42.5}).encode(),
+    headers={"Content-Type": "application/json"},
+    method="POST",
+)
+print(urllib.request.urlopen(req).read().decode())
+EOF
+```
+
+Valeurs acceptées : nombre (analogique), `active`/`inactive` (binaire), entier 1..N (multi-états, borné automatiquement). Erreurs : `404` objet inconnu, `400` valeur invalide ou objet non écrivable.
 
 ### Format de la configuration JSON
 
