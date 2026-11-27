@@ -1,9 +1,13 @@
 """Interface web (bibliotheque standard uniquement) pour lire et modifier les valeurs.
 
 Endpoints:
-    GET  /              page HTML (rafraichie automatiquement toutes les 2 s)
-    GET  /api/objects   liste JSON des objets et de leurs valeurs courantes
-    POST /api/set       body JSON {"id": "analogValue:1", "value": 42.5}
+    GET  /                page HTML (le tableau est construit une seule fois ;
+                          seules les cellules de valeur sont mises a jour en continu,
+                          jamais les champs de saisie en cours d'edition)
+    GET  /api/objects     liste JSON des objets, valeurs courantes et animations
+    POST /api/set         body JSON {"id": "analogValue:1", "value": 42.5}
+    POST /api/animation   body JSON {"id": "analogValue:1", "animation": {"type": "sine", ...}}
+                          (animation null ou {"type": "none"} pour la desactiver)
 """
 
 import json
@@ -28,27 +32,47 @@ _PAGE = """<!DOCTYPE html>
   #status.ok { color: #1a7f37; }
   #status.ko { color: #b3261e; }
   table { border-collapse: collapse; background: #fff; width: 100%; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
-  th, td { border: 1px solid #dde1e7; padding: .45rem .6rem; text-align: left; font-size: .92rem; }
+  th, td { border: 1px solid #dde1e7; padding: .45rem .6rem; text-align: left; font-size: .92rem; vertical-align: top; }
   th { background: #eef1f5; }
   .id { color: #7a8494; font-size: .78rem; }
-  input[type=number] { width: 9rem; padding: .25rem .4rem; }
+  input[type=number], input[type=text] { width: 7rem; padding: .25rem .4rem; }
   select { padding: .25rem .4rem; }
   button { padding: .3rem .8rem; cursor: pointer; }
   .ro { color: #7a8494; font-size: .85rem; }
+  .params { margin-top: .3rem; display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+  .params label { font-size: .8rem; color: #5a6675; }
+  .animcell select { min-width: 6rem; }
 </style>
 </head>
 <body>
 <h1>Simulateur BACnet - valeurs des objets</h1>
 <p id="device"></p>
 <p id="status" class="ok"></p>
+<p>
+  <button onclick="reload()">Rafraichir</button>
+  <label><input type="checkbox" id="autopoll" checked onchange="togglePoll()"> mise a jour auto des valeurs (2 s)</label>
+</p>
 <table id="objects">
   <thead>
-    <tr><th>Objet</th><th>Type</th><th>Animation</th><th>Valeur actuelle</th><th>Nouvelle valeur</th><th></th></tr>
+    <tr><th>Objet</th><th>Type</th><th>Valeur actuelle</th><th>Nouvelle valeur</th><th>Animation</th></tr>
   </thead>
   <tbody></tbody>
 </table>
-<p><button onclick="refresh()">Rafraichir</button></p>
 <script>
+const rows = {};
+let animTypes = {};
+let pollTimer = null;
+
+const ANIM_PARAMS = {
+  sine:   [['amplitude', 'number', 1.0], ['period', 'number', 60.0], ['offset', 'number', null]],
+  ramp:   [['start', 'number', null], ['stop', 'number', null], ['duration', 'number', 60.0], ['loop', 'checkbox', false]],
+  random: [['min', 'number', null], ['max', 'number', null]],
+  step:   [['levels', 'text', null], ['duration', 'number', 10.0]],
+  toggle: [['period', 'number', 10.0]],
+  cycle:  [['period', 'number', 10.0]],
+  none:   []
+};
+
 function setStatus(msg, ok) {
   const el = document.getElementById('status');
   el.textContent = msg;
@@ -95,76 +119,189 @@ function valueEditor(o) {
   return inp;
 }
 
-async function refresh() {
+function renderAnimParams(container, type, params) {
+  container.innerHTML = '';
+  for (const [name, inputType, def] of (ANIM_PARAMS[type] || [])) {
+    const label = document.createElement('label');
+    label.textContent = name + ' ';
+    const inp = document.createElement('input');
+    inp.dataset.param = name;
+    if (inputType === 'checkbox') {
+      inp.type = 'checkbox';
+      inp.checked = !!(params && params[name]);
+    } else {
+      inp.type = inputType;
+      if (inputType === 'number') inp.step = 'any';
+      const v = params && params[name] !== undefined ? params[name] : def;
+      if (name === 'levels' && Array.isArray(v)) inp.value = v.join(',');
+      else if (v !== null && v !== undefined) inp.value = v;
+    }
+    label.appendChild(inp);
+    container.appendChild(label);
+  }
+}
+
+function buildAnimCell(o) {
+  const cell = document.createElement('td');
+  cell.className = 'animcell';
+  const sel = document.createElement('select');
+  for (const t of (animTypes[o.kind] || ['none'])) {
+    const opt = document.createElement('option');
+    opt.value = t;
+    opt.textContent = t;
+    if (o.animation === t) opt.selected = true;
+    sel.appendChild(opt);
+  }
+  const params = document.createElement('div');
+  params.className = 'params';
+  renderAnimParams(params, sel.value, o.animation_params);
+  sel.onchange = () => renderAnimParams(params, sel.value, o.animation_params);
+  const btn = document.createElement('button');
+  btn.textContent = 'Appliquer';
+  btn.onclick = () => applyAnimation(o, sel, params);
+  cell.appendChild(sel);
+  cell.appendChild(params);
+  cell.appendChild(btn);
+  return {cell, sel, params};
+}
+
+function collectAnimation(sel, params) {
+  const animation = {type: sel.value};
+  for (const inp of params.querySelectorAll('input[data-param]')) {
+    const name = inp.dataset.param;
+    if (inp.type === 'checkbox') {
+      animation[name] = inp.checked;
+    } else if (name === 'levels') {
+      animation[name] = inp.value.split(',').map(s => parseFloat(s.trim())).filter(v => !isNaN(v));
+    } else {
+      const v = parseFloat(inp.value);
+      if (!isNaN(v)) animation[name] = v;
+    }
+  }
+  return animation;
+}
+
+async function applyAnimation(o, sel, params) {
+  const animation = collectAnimation(sel, params);
+  const res = await fetch('/api/animation', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id: o.id, animation: animation})
+  });
+  const body = await res.json();
+  if (res.ok) {
+    setStatus('animation de ' + o.id + ' = ' + body.object.animation, true);
+    updateAnim(o.id, body.object);
+  } else {
+    setStatus('erreur: ' + (body.error || res.status), false);
+  }
+}
+
+function updateAnim(id, o) {
+  const row = rows[id];
+  if (!row || row.cell.contains(document.activeElement)) return;
+  row.sel.value = o.animation;
+  renderAnimParams(row.params, o.animation, o.animation_params);
+}
+
+function buildRow(o) {
+  const tr = document.createElement('tr');
+
+  const tdName = document.createElement('td');
+  tdName.textContent = o.name;
+  const id = document.createElement('div');
+  id.className = 'id';
+  id.textContent = o.id;
+  tdName.appendChild(id);
+  tr.appendChild(tdName);
+
+  const tdType = document.createElement('td');
+  tdType.textContent = o.type;
+  tr.appendChild(tdType);
+
+  const tdVal = document.createElement('td');
+  tdVal.className = 'value-cell';
+  tdVal.textContent = fmtValue(o);
+  tr.appendChild(tdVal);
+
+  const tdEdit = document.createElement('td');
+  if (o.writable) {
+    const editor = valueEditor(o);
+    const btn = document.createElement('button');
+    btn.textContent = 'Enregistrer';
+    btn.onclick = async () => {
+      const res = await fetch('/api/set', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id: o.id, value: editor.value})
+      });
+      const body = await res.json();
+      if (res.ok) {
+        setStatus(o.id + ' = ' + fmtValue(body.object), true);
+        updateValue(o.id, body.object);
+        updateAnim(o.id, body.object);
+      } else {
+        setStatus('erreur: ' + (body.error || res.status), false);
+      }
+    };
+    tdEdit.appendChild(editor);
+    tdEdit.appendChild(document.createTextNode(' '));
+    tdEdit.appendChild(btn);
+  } else {
+    tdEdit.className = 'ro';
+    tdEdit.textContent = 'lecture seule';
+  }
+  tr.appendChild(tdEdit);
+
+  const anim = buildAnimCell(o);
+  tr.appendChild(anim.cell);
+
+  rows[o.id] = {tr, valueCell: tdVal, cell: anim.cell, sel: anim.sel, params: anim.params};
+  return tr;
+}
+
+function updateValue(id, o) {
+  const row = rows[id];
+  if (!row || row.tr.contains(document.activeElement)) return;
+  row.valueCell.textContent = fmtValue(o);
+}
+
+async function reload() {
   try {
     const res = await fetch('/api/objects');
     const data = await res.json();
     document.getElementById('device').textContent =
       data.device.name + ' (device:' + data.device.instance + ')';
+    animTypes = data.animations || {};
     const tbody = document.querySelector('#objects tbody');
     tbody.innerHTML = '';
+    for (const id of Object.keys(rows)) delete rows[id];
+    for (const o of data.objects) tbody.appendChild(buildRow(o));
+  } catch (err) {
+    setStatus('erreur de chargement: ' + err, false);
+  }
+}
+
+async function pollValues() {
+  try {
+    const res = await fetch('/api/objects');
+    const data = await res.json();
     for (const o of data.objects) {
-      const tr = document.createElement('tr');
-
-      const tdName = document.createElement('td');
-      tdName.textContent = o.name;
-      const id = document.createElement('div');
-      id.className = 'id';
-      id.textContent = o.id;
-      tdName.appendChild(id);
-      tr.appendChild(tdName);
-
-      const tdType = document.createElement('td');
-      tdType.textContent = o.type;
-      tr.appendChild(tdType);
-
-      const tdAnim = document.createElement('td');
-      tdAnim.textContent = o.animation;
-      tr.appendChild(tdAnim);
-
-      const tdVal = document.createElement('td');
-      tdVal.textContent = fmtValue(o);
-      tr.appendChild(tdVal);
-
-      const tdEdit = document.createElement('td');
-      const editor = o.writable ? valueEditor(o) : document.createElement('span');
-      tdEdit.appendChild(editor);
-      tr.appendChild(tdEdit);
-
-      const tdBtn = document.createElement('td');
-      if (o.writable) {
-        const btn = document.createElement('button');
-        btn.textContent = 'Enregistrer';
-        btn.onclick = async () => {
-          const r = await fetch('/api/set', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({id: o.id, value: editor.value})
-          });
-          const body = await r.json();
-          if (r.ok) {
-            setStatus(o.id + ' = ' + fmtValue(body.object), true);
-          } else {
-            setStatus('erreur: ' + (body.error || r.status), false);
-          }
-          await refresh();
-        };
-        tdBtn.appendChild(btn);
-      } else {
-        tdBtn.className = 'ro';
-        tdBtn.textContent = 'lecture seule';
-      }
-      tr.appendChild(tdBtn);
-
-      tbody.appendChild(tr);
+      updateValue(o.id, o);
+      updateAnim(o.id, o);
     }
   } catch (err) {
     setStatus('erreur de chargement: ' + err, false);
   }
 }
 
-refresh();
-setInterval(refresh, 2000);
+function togglePoll() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  if (document.getElementById('autopoll').checked) pollTimer = setInterval(pollValues, 2000);
+}
+
+reload();
+togglePoll();
 </script>
 </body>
 </html>
@@ -208,15 +345,21 @@ class _RequestHandler(BaseHTTPRequestHandler):
             self._send_json({"error": f"ressource inconnue: {path}"}, 404)
 
     def do_POST(self) -> None:
-        if self._path() != "/api/set":
-            self._send_json({"error": f"ressource inconnue: {self._path()}"}, 404)
+        path = self._path()
+        if path not in ("/api/set", "/api/animation"):
+            self._send_json({"error": f"ressource inconnue: {path}"}, 404)
             return
         try:
             length = int(self.headers.get("Content-Length") or 0)
             data = json.loads(self.rfile.read(length) or b"{}")
             if not isinstance(data, dict):
                 raise ValueError("le body doit etre un objet JSON")
-            updated = self._sim.set_value(str(data.get("id", "")), data.get("value"))
+            if path == "/api/set":
+                updated = self._sim.set_value(str(data.get("id", "")), data.get("value"))
+            else:
+                updated = self._sim.set_animation(
+                    str(data.get("id", "")), data.get("animation")
+                )
         except KeyError as err:
             self._send_json({"error": f"objet inconnu: {err.args[0]!r}"}, 404)
             return

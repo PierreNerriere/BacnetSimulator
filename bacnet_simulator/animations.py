@@ -34,6 +34,61 @@ def allowed_animations(object_type: str) -> tuple:
     return MULTISTATE_ANIMATIONS
 
 
+def validate_animation(object_type: str, animation: Dict[str, Any]) -> None:
+    """Valide un dict d'animation (leve ValueError si invalide)."""
+    if not isinstance(animation, dict):
+        raise ValueError("'animation' doit etre un objet JSON")
+    anim_type = str(animation.get("type", "none"))
+    allowed = allowed_animations(object_type)
+    if anim_type not in allowed:
+        raise ValueError(
+            f"animation {anim_type!r} incompatible avec {object_type!r} "
+            f"(autorisees: {', '.join(allowed)})"
+        )
+    if anim_type == "none":
+        return
+    kind = animation_kind(object_type)
+
+    def _number(name: str, default: float) -> float:
+        try:
+            return float(animation.get(name, default))
+        except (TypeError, ValueError):
+            raise ValueError(f"animation {anim_type}: '{name}' doit etre un nombre")
+
+    if kind == "analog":
+        if anim_type == "sine":
+            _number("amplitude", 1.0)
+            _number("offset", 0.0)
+            if _number("period", 60.0) <= 0:
+                raise ValueError("animation sine: 'period' doit etre > 0")
+        elif anim_type == "ramp":
+            _number("start", 0.0)
+            _number("stop", 0.0)
+            if _number("duration", 60.0) <= 0:
+                raise ValueError("animation ramp: 'duration' doit etre > 0")
+        elif anim_type == "random":
+            low = _number("min", 0.0)
+            high = _number("max", 0.0)
+            if low > high:
+                raise ValueError("animation random: 'min' doit etre <= 'max'")
+        elif anim_type == "step":
+            levels = animation.get("levels")
+            if not isinstance(levels, list) or not levels:
+                raise ValueError("animation step: 'levels' doit etre une liste non vide")
+            for level in levels:
+                try:
+                    float(level)
+                except (TypeError, ValueError):
+                    raise ValueError("animation step: 'levels' doit contenir des nombres")
+            if _number("duration", 10.0) <= 0:
+                raise ValueError("animation step: 'duration' doit etre > 0")
+    elif kind == "binary":
+        if anim_type == "toggle" and _number("period", 10.0) <= 0:
+            raise ValueError("animation toggle: 'period' doit etre > 0")
+    elif anim_type == "cycle" and _number("period", 10.0) <= 0:
+        raise ValueError("animation cycle: 'period' doit etre > 0")
+
+
 def animate(
     animation: Dict[str, Any],
     kind: str,

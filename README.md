@@ -57,15 +57,17 @@ poetry run bacnet-simulator --config examples/config.example.json --web --web-ad
 ```
 
 - Par défaut l'interface n'écoute que sur **loopback** (`127.0.0.1:8080`) ; `--web-address 0.0.0.0:8080` l'expose sur le réseau (pensez au pare-feu).
-- La page `GET /` liste les objets avec leur valeur courante (rafraîchie toutes les 2 s) et un formulaire par objet `*Value` / `*Output` (les `*Input` sont en lecture seule, comme en BACnet).
+- La page `GET /` liste les objets avec leur valeur courante et un formulaire par objet `*Value` / `*Output` (les `*Input` sont en lecture seule, comme en BACnet). **La page n'est jamais reconstruite automatiquement** : seules les cellules « Valeur actuelle » sont mises à jour toutes les 2 s (case « mise à jour auto » pour désactiver), et la ligne en cours de saisie est toujours ignorée — on peut donc taper une valeur sans perdre le focus. Le bouton « Rafraîchir » recharge la page à la demande.
 - **Modifier une valeur depuis la page désactive l'animation** de l'objet concerné, pour que la valeur saisie soit conservée (visible aussi via `ReadProperty`).
+- **Choisir l'animation depuis la page** : chaque ligne a un sélecteur d'animation (`none`, `sine`, `ramp`, `random`, `step` pour les analogiques ; `none`, `toggle` pour les binaires ; `none`, `cycle` pour les multi-états) avec ses paramètres (période, amplitude, niveaux...) et un bouton « Appliquer ».
 
 API JSON :
 
 | Endpoint | Description |
 |---|---|
-| `GET /api/objects` | liste JSON des objets (id, nom, type, valeur, unités, animation, `writable`) |
+| `GET /api/objects` | liste JSON des objets (id, nom, type, valeur, unités, `animation`, `animation_params`, `writable`) + les animations autorisées par genre (`animations`) |
 | `POST /api/set` | body `{"id": "analogValue:1", "value": 42.5}` → modifie la valeur, réponse `{"object": {...}}` |
+| `POST /api/animation` | body `{"id": "analogValue:1", "animation": {"type": "sine", "amplitude": 3, "period": 60, "offset": 21}}` → choisit l'animation (`null` ou `{"type": "none"}` pour la désactiver), réponse `{"object": {...}}` |
 
 Exemple :
 
@@ -82,7 +84,22 @@ print(urllib.request.urlopen(req).read().decode())
 EOF
 ```
 
-Valeurs acceptées : nombre (analogique), `active`/`inactive` (binaire), entier 1..N (multi-états, borné automatiquement). Erreurs : `404` objet inconnu, `400` valeur invalide ou objet non écrivable.
+Valeurs acceptées : nombre (analogique), `active`/`inactive` (binaire), entier 1..N (multi-états, borné automatiquement). Erreurs : `404` objet inconnu, `400` valeur/animation invalide ou objet non écrivable.
+
+Exemple de changement d'animation :
+
+```bash
+python3 - <<'EOF'
+import json, urllib.request
+req = urllib.request.Request(
+    "http://127.0.0.1:8080/api/animation",
+    data=json.dumps({"id": "analogValue:1", "animation": {"type": "random", "min": 18, "max": 26}}).encode(),
+    headers={"Content-Type": "application/json"},
+    method="POST",
+)
+print(urllib.request.urlopen(req).read().decode())
+EOF
+```
 Options : `--address 0.0.0.0:47808`, `--broadcast-address 192.168.1.255`, `--instance 1234`, `--name MonDevice`, `-v` (debug).
 
 ### Exemple : liste de points de supervision (PTU)
