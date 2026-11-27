@@ -85,7 +85,9 @@ function fmtValue(o) {
     const label = (o.state_text && o.state_text[o.value - 1]) || ('State ' + o.value);
     return o.value + ' - ' + label;
   }
-  return o.units ? o.value + ' ' + o.units : String(o.value);
+  const v = Number(o.value);
+  const s = isNaN(v) ? String(o.value) : v.toFixed(1);
+  return o.units ? s + ' ' + o.units : s;
 }
 
 function valueEditor(o) {

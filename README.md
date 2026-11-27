@@ -60,6 +60,7 @@ poetry run bacnet-simulator --config examples/config.example.json --web --web-ad
 - La page `GET /` liste les objets avec leur valeur courante et un formulaire par objet `*Value` / `*Output` (les `*Input` sont en lecture seule, comme en BACnet). **La page n'est jamais reconstruite automatiquement** : seules les cellules « Valeur actuelle » sont mises à jour toutes les 2 s (case « mise à jour auto » pour désactiver), et la ligne en cours de saisie est toujours ignorée — on peut donc taper une valeur sans perdre le focus. Le bouton « Rafraîchir » recharge la page à la demande.
 - **Modifier une valeur depuis la page désactive l'animation** de l'objet concerné, pour que la valeur saisie soit conservée (visible aussi via `ReadProperty`).
 - **Choisir l'animation depuis la page** : chaque ligne a un sélecteur d'animation (`none`, `sine`, `ramp`, `random`, `step` pour les analogiques ; `none`, `toggle` pour les binaires ; `none`, `cycle` pour les multi-états) avec ses paramètres (période, amplitude, niveaux...) et un bouton « Appliquer ».
+- Les valeurs **analogiques sont affichées avec 1 chiffre après la virgule** (le champ de saisie conserve la précision complète).
 
 API JSON :
 
