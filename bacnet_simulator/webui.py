@@ -143,7 +143,7 @@ function renderAnimParams(container, type, params) {
   }
 }
 
-function buildAnimCell(o) {
+function buildAnimCell(o, row) {
   const cell = document.createElement('td');
   cell.className = 'animcell';
   const sel = document.createElement('select');
@@ -157,7 +157,8 @@ function buildAnimCell(o) {
   const params = document.createElement('div');
   params.className = 'params';
   renderAnimParams(params, sel.value, o.animation_params);
-  sel.onchange = () => renderAnimParams(params, sel.value, o.animation_params);
+  sel.onchange = () => { row.animDirty = true; renderAnimParams(params, sel.value, null); };
+  params.addEventListener('input', () => { row.animDirty = true; });
   const btn = document.createElement('button');
   btn.textContent = 'Appliquer';
   btn.onclick = () => applyAnimation(o, sel, params);
@@ -192,6 +193,8 @@ async function applyAnimation(o, sel, params) {
   });
   const body = await res.json();
   if (res.ok) {
+    const row = rows[o.id];
+    if (row) row.animDirty = false;
     setStatus('animation de ' + o.id + ' = ' + body.object.animation, true);
     updateAnim(o.id, body.object);
   } else {
@@ -201,13 +204,15 @@ async function applyAnimation(o, sel, params) {
 
 function updateAnim(id, o) {
   const row = rows[id];
-  if (!row || row.cell.contains(document.activeElement)) return;
+  if (!row || row.animDirty) return;
   row.sel.value = o.animation;
   renderAnimParams(row.params, o.animation, o.animation_params);
 }
 
 function buildRow(o) {
   const tr = document.createElement('tr');
+  const row = {tr, valueDirty: false, animDirty: false};
+  rows[o.id] = row;
 
   const tdName = document.createElement('td');
   tdName.textContent = o.name;
@@ -225,10 +230,12 @@ function buildRow(o) {
   tdVal.className = 'value-cell';
   tdVal.textContent = fmtValue(o);
   tr.appendChild(tdVal);
+  row.valueCell = tdVal;
 
   const tdEdit = document.createElement('td');
   if (o.writable) {
     const editor = valueEditor(o);
+    editor.addEventListener('input', () => { row.valueDirty = true; });
     const btn = document.createElement('button');
     btn.textContent = 'Enregistrer';
     btn.onclick = async () => {
@@ -239,6 +246,8 @@ function buildRow(o) {
       });
       const body = await res.json();
       if (res.ok) {
+        row.valueDirty = false;
+        row.animDirty = false;
         setStatus(o.id + ' = ' + fmtValue(body.object), true);
         updateValue(o.id, body.object);
         updateAnim(o.id, body.object);
@@ -255,16 +264,18 @@ function buildRow(o) {
   }
   tr.appendChild(tdEdit);
 
-  const anim = buildAnimCell(o);
+  const anim = buildAnimCell(o, row);
+  row.cell = anim.cell;
+  row.sel = anim.sel;
+  row.params = anim.params;
   tr.appendChild(anim.cell);
 
-  rows[o.id] = {tr, valueCell: tdVal, cell: anim.cell, sel: anim.sel, params: anim.params};
   return tr;
 }
 
 function updateValue(id, o) {
   const row = rows[id];
-  if (!row || row.tr.contains(document.activeElement)) return;
+  if (!row || row.valueDirty) return;
   row.valueCell.textContent = fmtValue(o);
 }
 

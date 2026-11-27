@@ -121,6 +121,9 @@ class WebUITest(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(b"setInterval(reload", body)
         # les valeurs analogiques sont affichees avec 1 chiffre apres la virgule
         self.assertIn(b"toFixed(1)", body)
+        # le polling ne touche jamais une ligne en cours de saisie (drapeaux dirty)
+        self.assertIn(b"valueDirty", body)
+        self.assertNotIn(b"activeElement", body)
 
     async def test_list_objects(self) -> None:
         status, body = await asyncio.to_thread(self._get, "/api/objects")
