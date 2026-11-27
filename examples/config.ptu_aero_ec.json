@@ -186,7 +186,7 @@
       "instance": 39,
       "name": "AERO_StandbyCoolSP",
       "description": "Consigne standby froid",
-      "value": 27.0,
+      "value": 30.0,
       "cov_increment": 0.5
     },
     {
@@ -208,7 +208,7 @@
       "instance": 42,
       "name": "AERO_StandbyHeatSP",
       "description": "Consigne standby chaud",
-      "value": 18.0
+      "value": 14.0
     },
     {
       "type": "analogValue",
@@ -231,7 +231,7 @@
       "description": "Signal vanne chaud",
       "value": 0.0,
       "cov_increment": 1.0,
-      "animation": { "type": "sine", "amplitude": 50.0, "period": 120.0, "offset": 50.0 }
+      "animation": { "type": "sine", "amplitude": 50.0, "period": 90.0, "offset": 50.0 }
     },
     {
       "type": "analogOutput",
