@@ -114,6 +114,11 @@ class WebUITest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(status, 200)
         self.assertIn(b"<html", body.lower())
         self.assertIn(b"/api/objects", body)
+        self.assertIn(b"/api/animation", body)
+        # le tableau n'est plus reconstruit automatiquement: seul le polling
+        # des cellules de valeur existe, jamais un refresh complet de la page
+        self.assertIn(b"pollValues", body)
+        self.assertNotIn(b"setInterval(reload", body)
 
     async def test_list_objects(self) -> None:
         status, body = await asyncio.to_thread(self._get, "/api/objects")
@@ -135,7 +140,13 @@ class WebUITest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(by_id["analogValue:1"]["writable"])
         self.assertFalse(by_id["analogInput:1"]["writable"])
         self.assertEqual(by_id["analogValue:2"]["animation"], "sine")
+        self.assertEqual(by_id["analogValue:2"]["animation_params"]["period"], 1.0)
+        self.assertIsNone(by_id["analogValue:1"]["animation_params"])
         self.assertEqual(by_id["multiStateValue:1"]["state_text"], ["Off", "Auto", "Manual"])
+        self.assertIn("analog", data["animations"])
+        self.assertIn("sine", data["animations"]["analog"])
+        self.assertIn("toggle", data["animations"]["binary"])
+        self.assertIn("cycle", data["animations"]["multistate"])
 
     async def test_set_analog_value_visible_via_bacnet_and_animation_paused(self) -> None:
         status, data = await asyncio.to_thread(
@@ -211,6 +222,99 @@ class WebUITest(unittest.IsolatedAsyncioTestCase):
             self._post, "/api/set", {"id": "analogValue:1"}
         )
         self.assertEqual(status, 400)
+
+    async def test_set_animation_then_value_animates_again(self) -> None:
+        status, data = await asyncio.to_thread(
+            self._post,
+            "/api/animation",
+            {
+                "id": "analogValue:1",
+                "animation": {"type": "sine", "amplitude": 5.0, "period": 1.0, "offset": 10.0},
+            },
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(data["object"]["animation"], "sine")
+        self.assertEqual(data["object"]["animation_params"]["amplitude"], 5.0)
+
+        await asyncio.sleep(0.45)
+        value = await self.client.read_property(
+            self.target, "analogValue:1", "presentValue"
+        )
+        self.assertGreater(abs(float(value) - 10.0), 0.01)
+
+        status, body = await asyncio.to_thread(self._get, "/api/objects")
+        by_id = {o["id"]: o for o in json.loads(body)["objects"]}
+        self.assertEqual(by_id["analogValue:1"]["animation"], "sine")
+
+    async def test_disable_animation_via_none(self) -> None:
+        status, data = await asyncio.to_thread(
+            self._post, "/api/animation", {"id": "analogValue:2", "animation": {"type": "none"}}
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(data["object"]["animation"], "none")
+        self.assertIsNone(data["object"]["animation_params"])
+
+        value1 = await self.client.read_property(
+            self.target, "analogValue:2", "presentValue"
+        )
+        await asyncio.sleep(0.35)
+        value2 = await self.client.read_property(
+            self.target, "analogValue:2", "presentValue"
+        )
+        self.assertAlmostEqual(float(value1), float(value2), delta=1e-5)
+
+        status, data = await asyncio.to_thread(
+            self._post, "/api/animation", {"id": "analogValue:2", "animation": None}
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(data["object"]["animation"], "none")
+
+    async def test_set_animation_binary_toggle(self) -> None:
+        status, data = await asyncio.to_thread(
+            self._post,
+            "/api/animation",
+            {"id": "binaryValue:1", "animation": {"type": "toggle", "period": 0.2}},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(data["object"]["animation"], "toggle")
+
+    async def test_set_animation_invalid_type_rejected(self) -> None:
+        status, data = await asyncio.to_thread(
+            self._post, "/api/animation", {"id": "binaryValue:1", "animation": {"type": "sine"}}
+        )
+        self.assertEqual(status, 400)
+        self.assertIn("incompatible", data["error"])
+
+    async def test_set_animation_invalid_params_rejected(self) -> None:
+        status, _ = await asyncio.to_thread(
+            self._post,
+            "/api/animation",
+            {"id": "analogValue:1", "animation": {"type": "sine", "period": -5}},
+        )
+        self.assertEqual(status, 400)
+        status, _ = await asyncio.to_thread(
+            self._post,
+            "/api/animation",
+            {"id": "analogValue:1", "animation": {"type": "random", "min": 10, "max": 1}},
+        )
+        self.assertEqual(status, 400)
+        status, _ = await asyncio.to_thread(
+            self._post,
+            "/api/animation",
+            {"id": "analogValue:1", "animation": {"type": "step", "levels": []}},
+        )
+        self.assertEqual(status, 400)
+        status, _ = await asyncio.to_thread(
+            self._post, "/api/animation", {"id": "analogValue:1", "animation": "sine"}
+        )
+        self.assertEqual(status, 400)
+
+    async def test_set_animation_unknown_object_returns_404(self) -> None:
+        status, data = await asyncio.to_thread(
+            self._post, "/api/animation", {"id": "analogValue:99", "animation": {"type": "sine"}}
+        )
+        self.assertEqual(status, 404)
+        self.assertIn("error", data)
 
     async def test_unknown_routes_return_404(self) -> None:
         def _get_404() -> int:
