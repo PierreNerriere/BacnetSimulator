@@ -119,6 +119,8 @@ class WebUITest(unittest.IsolatedAsyncioTestCase):
         # des cellules de valeur existe, jamais un refresh complet de la page
         self.assertIn(b"pollValues", body)
         self.assertNotIn(b"setInterval(reload", body)
+        # les valeurs analogiques sont affichees avec 1 chiffre apres la virgule
+        self.assertIn(b"toFixed(1)", body)
 
     async def test_list_objects(self) -> None:
         status, body = await asyncio.to_thread(self._get, "/api/objects")
